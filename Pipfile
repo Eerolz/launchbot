@@ -1,0 +1,13 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+python-launch-library = "*"
+"discord.py" = {file = "https://github.com/Rapptz/discord.py/archive/rewrite.zip"}
+
+[requires]
+python_version = "3.7"
