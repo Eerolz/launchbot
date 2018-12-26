@@ -65,15 +65,20 @@ Example:
 ```
 Powerroles = Admin, Owner, Moderator
 ```
+If this bot is public and free for anyone to add to their server, this list should be empty to prevent random people from commanding the bot to shut down.
 
 ### Running the bot
 You can run the bot by using command:
 ```
 pipenv run main.py
 ```
-Go to the server and test the bot1
+Go to the server and test the bot!
+Show all commands by using prefix + help.
+Example:
+```
+!help
+```
 
 
-Here is invite to my discord testserver.
-https://discord.gg/zYpAFsw
-Feel free to open issues and pull requests.
+You can ask questions or suggest commands on my [testserver](https://discord.gg/zYpAFsw).
+Or feel free to open issues and pull requests.
