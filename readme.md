@@ -22,10 +22,8 @@ pipenv install
 #### Creating discord bot
 Go to [discord developer portal](https://discordapp.com/developers/applications/) and create an application.
 Go to the bot tab, and click "Add bot".
-Replace the XXXXXXXXX with your client ID and go to:
-https://discordapp.com/oauth2/authorize?client_id=XXXXXXXXXXXX&scope=bot
-You can find your client ID from the general information tab.
-There you can add the bot to your server(s).
+Go to OAuth2 tab and check the bot checkbox.
+Go to the url that appears below, and add it to a server.
 
 #### Configuring the bot.
 Copy exampleconfig.ini as config.ini and modify it for your needs.
