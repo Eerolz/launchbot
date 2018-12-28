@@ -65,6 +65,35 @@ Powerroles = Admin, Owner, Moderator
 ```
 If this bot is public and free for anyone to add to their server, this list should be empty to prevent random people from commanding the bot to shut down.
 
+##### Abusers
+List of user IDs that can never command the bot to shut down.
+Example:
+```
+Abusers = 217611345669749337, 217611295369123377
+```
+You should leave this empty, but if someone kills the bot without reason, you can put their user ID here.
+The killer's ID will be logged to killers.txt. 
+
+##### Cannotify
+Can the bot notify launch notify channel
+```
+Cannotify = yes
+```
+For notification to work, you need 'Launch notify' named role.
+
+##### Islimited
+Is the bot limited only to channels by certain names.
+```
+Islimited = yes
+```
+
+##### Channels
+List of channels that the bot can be used on if the previous setting is set to 'yes'.
+```
+Channels = test, bot-playground
+```
+You can leave this empty if Islimited is set to 'no'.
+
 ### Running the bot
 You can run the bot by using command:
 ```

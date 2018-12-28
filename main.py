@@ -5,19 +5,28 @@ import launchlibrary
 import asyncio
 from datetime import datetime, timezone, timedelta
 from formatters import *
+from random import choice
 
 
 configfile = "config.ini"
 config = configparser.ConfigParser()
 config.read(configfile)
 
+# who can kill the bot
 authorities = config['AUTHORITIES']['Authorities'].split(',')
 authorities = list(map(int, authorities))
 powerroles = config['AUTHORITIES']['Powerroles'].split(',')
+abusers = config['AUTHORITIES']['Abusers'].split(',')
+abusers = list(map(int, abusers))
+# bot configuration
 prefix = config['BOT']['Prefix'].strip("'")
 TOKEN = config['BOT']['Token']
-
-
+# other bot settings
+can_notify = config['SETTINGS'].getboolean('Cannotify')
+# channel limitation settings
+limit_channels = config['CHANNELS'].getboolean('Islimited')
+if limit_channels:
+    channels = config['CHANNELS']['Channels'].split(',')
 
 
 api = launchlibrary.Api()
@@ -33,6 +42,14 @@ async def send(ctx, msg, args):
         await asyncio.sleep(15)
         await sent_msg.delete()
 
+def can_answer(ctx):
+    if limit_channels:
+        if ctx.channel.name in channels:
+            return True
+        else:
+            return False
+    else:
+        return True
 
 class Launchcommands:
     """Commands related to rocket launches."""
@@ -47,6 +64,8 @@ class Launchcommands:
         -d        Includes mission description.
         -v        Includes video URL.
         """
+        if not can_answer(ctx):
+            return
         launch = launchlibrary.Launch.next(api, 1)[0]
         launchname = launch.name
         launchtime_tz = launch.net
@@ -58,10 +77,13 @@ class Launchcommands:
         if probability == -1:
             probabilitystr = "Probability not available."
         else:
-            probabilitystr = str(probability) + "%"
+            probabilitystr = '{0}%'.format(probability)
         msg = ''
         if '-n' in args:
-            msg = notify(msg, ctx)
+            if can_notify:
+                msg = notify(msg, ctx)
+            else:
+                msg = "Notifying disabled. "
         msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
         msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
         for arg, formatter in (('-id', id), ('-d', description), ('-v', videourl)):
@@ -79,6 +101,8 @@ class Launchcommands:
         -v        Includes video URL.
         -d        Includes mission description.
         """
+        if not can_answer(ctx):
+            return
         launchid = False
         for arg in args:
             if str(arg).isdigit():
@@ -110,6 +134,8 @@ class Launchcommands:
         -v        Includes video URL.
         -d        Includes mission description.
         """
+        if not can_answer(ctx):
+            return
         launches = launchlibrary.Launch.fetch(api, name=name)
         if launches:
             launch = launches[0]
@@ -135,6 +161,8 @@ class Launchcommands:
         -k        Does not automatically delete bot message.
         -id       Include the IDs of the launches.
         """
+        if not can_answer(ctx):
+            return
         num = 5
         for arg in args:
             if arg.isdigit():
@@ -160,6 +188,8 @@ class Launchcommands:
         -s        Include launch status.
         -id       Include the IDs of the launches.
         """
+        if not can_answer(ctx):
+            return
         num = 5
         for arg in args:
             if arg.isdigit():
@@ -178,6 +208,8 @@ class Launchcommands:
     @commands.command()
     async def tminus(self, ctx):
         """Tells time to NET of next launch."""
+        if not can_answer(ctx):
+            return
         launch = launchlibrary.Launch.next(api, 1)[0]
         launchtime = launch.net
         utc = datetime.now(timezone.utc)
@@ -203,6 +235,8 @@ class Rocketcommands:
         -p        Includes pad ids.
         -w        Includes wikipedia URL.
         """
+        if not can_answer(ctx):
+            return
         rockets = launchlibrary.Rocket.fetch(api, name=name)
         if rockets:
             rocket = rockets[0]
@@ -227,6 +261,8 @@ class Rocketcommands:
         -p        Includes pad ids.
         -w        Includes wikipedia URL.
         """
+        if not can_answer(ctx):
+            return
         for arg in args:
             if arg.isdigit():
                 id = int(arg)
@@ -251,6 +287,9 @@ async def shutdown(ctx):
     Please don't abuse this, or I might have to remove it.
     """
     author = ctx.author
+    if author.id in abusers:
+        await ctx.send("Your killing privileges have been revoked!")
+        return
     roles = author.roles
     is_admin = False
     for role in roles:
@@ -258,8 +297,14 @@ async def shutdown(ctx):
             is_admin = True
             break
     if author.id in authorities or is_admin:
-        await ctx.send("If you say so ;(")
+        msgs = ['If you say so :,(', 'Your wish is my command!', 'Anything for you milord!', ':,(', 'NOOOOOOOOOOOOOOOOOoooooooo.......']
+        msg = choice(msgs)
+        await ctx.send(msg)
+        f = "killers.txt"
+        killlog = open(f, 'a')
+        killlog.write(str(author.id))
         await bot.logout()
+
     else:
         await ctx.send("You can't tell me what to do!")
 bot.run(TOKEN)
