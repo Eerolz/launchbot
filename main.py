@@ -169,13 +169,16 @@ class Launchcommands:
                 num = int(arg)
         launches = launchlibrary.Launch.fetch(api, name=name)
         msg = ""
-        for launch in launches[:num]:
-            msg += launch.name
-            if "-s" in args:
-                msg += ", Status: {0}".format(launch.get_status().name)
-            if "-id" in args:
-                msg += ", ID: {0}".format(launch.id)
-            msg += "\n"
+        if launches:
+            for launch in launches[:num]:
+                msg += launch.name
+                if "-s" in args:
+                    msg += ", Status: {0}".format(launch.get_status().name)
+                if "-id" in args:
+                    msg += ", ID: {0}".format(launch.id)
+                msg += "\n"
+        else:
+            msg = "No launches found with provided name."
         await send(ctx, msg, args)
 
     @commands.command()
