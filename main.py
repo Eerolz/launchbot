@@ -92,6 +92,56 @@ class Launchcommands:
         await send(ctx, msg, args)
 
     @commands.command()
+    async def launchalert(self, ctx, alerttime=15):
+        """Enables launch alerts until next shutdown.
+        Only authorities can use this.
+
+        [int]     Minutes before launch to alert. (default = 15)
+        """
+        if not can_answer(ctx):
+            return
+        author = ctx.author
+        roles = author.roles
+        is_admin = False
+        for role in roles:
+            if str(role) in powerroles:
+                is_admin = True
+                break
+        if author.id in authorities or is_admin:
+            alerttime = int(alerttime)
+            msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
+            await ctx.send(msg)
+            while 1:
+                launch = launchlibrary.Launch.next(api, 1)[0]
+                launchtime_tz = launch.net
+                utc = datetime.now(timezone.utc)
+                T = chop_microseconds(launchtime_tz - utc)
+                if T < timedelta(minutes=alerttime):
+                    launchname = launch.name
+                    tz = launchtime_tz.tzname()
+                    launchtime = launchtime_tz.replace(tzinfo=None)
+                    probability = launch.probability
+                    if probability == -1:
+                        probabilitystr = "Probability not available."
+                    else:
+                        probabilitystr = '{0}%'.format(probability)
+                    msg = ''
+                    if can_notify:
+                        msg = notify(msg, ctx)
+                    else:
+                        msg = "Notifying disabled. "
+                    msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
+                    msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
+                    for formatter in (description, videourl):
+                        msg = formatter(msg, launch)
+                    await ctx.send(msg)
+                    await asyncio.sleep(alerttime*60)
+                else:
+                    await asyncio.sleep(40)
+        else:
+            await ctx.send("You don't have permission to do that.")
+
+    @commands.command()
     async def launchbyid(self, ctx, *args):
         """Tells information about launch with provided ID.
 
