@@ -13,18 +13,26 @@ config = configparser.ConfigParser()
 config.read(configfile)
 
 # who can kill the bot
-authorities = config['AUTHORITIES']['Authorities'].split(',')
-authorities = list(map(int, authorities))
+authorities = config['AUTHORITIES']['Authorities']
+if authorities:
+    authorities = authorities.split(',')
+    authorities = list(map(int, authorities))
+else:
+    authorities = []
 powerroles = config['AUTHORITIES']['Powerroles'].split(',')
-abusers = config['AUTHORITIES']['Abusers'].split(',')
-abusers = list(map(int, abusers))
+abusers = config['AUTHORITIES']['Abusers']
+if abusers:
+    abusers = abusers.split(',')
+    abusers = list(map(int, abusers))
+else:
+    abusers = []
 # bot configuration
 prefix = config['BOT']['Prefix'].strip("'")
 TOKEN = config['BOT']['Token']
 # other bot settings
-can_notify = config['SETTINGS'].getboolean('Cannotify')
+can_notify = config['SETTINGS'].getboolean('Can_notify')
 # channel limitation settings
-limit_channels = config['CHANNELS'].getboolean('Islimited')
+limit_channels = config['CHANNELS'].getboolean('Is_limited')
 if limit_channels:
     channels = config['CHANNELS']['Channels'].split(',')
 
@@ -92,7 +100,7 @@ class Launchcommands:
         await send(ctx, msg, args)
 
     @commands.command()
-    async def launchalert(self, ctx, alerttime=15):
+    async def launchalert(self, ctx, alerttime='15'):
         """Enables launch alerts until next shutdown.
         Only authorities can use this.
 
@@ -108,36 +116,67 @@ class Launchcommands:
                 is_admin = True
                 break
         if author.id in authorities or is_admin:
-            alerttime = int(alerttime)
-            msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
-            await ctx.send(msg)
-            while 1:
-                launch = launchlibrary.Launch.next(api, 1)[0]
-                launchtime_tz = launch.net
-                utc = datetime.now(timezone.utc)
-                T = chop_microseconds(launchtime_tz - utc)
-                if T < timedelta(minutes=alerttime):
-                    launchname = launch.name
-                    tz = launchtime_tz.tzname()
-                    launchtime = launchtime_tz.replace(tzinfo=None)
-                    probability = launch.probability
-                    if probability == -1:
-                        probabilitystr = "Probability not available."
+            if len(alerttime) < 6:
+                alerttime = int(alerttime)
+                msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
+                await ctx.send(msg)
+                while 1:
+                    launch = launchlibrary.Launch.next(api, 1)[0]
+                    launchtime_tz = launch.net
+                    utc = datetime.now(timezone.utc)
+                    T = chop_microseconds(launchtime_tz - utc)
+                    if T < timedelta(minutes=alerttime):
+                        launchname = launch.name
+                        tz = launchtime_tz.tzname()
+                        launchtime = launchtime_tz.replace(tzinfo=None)
+                        probability = launch.probability
+                        if probability == -1:
+                            probabilitystr = "Probability not available."
+                        else:
+                            probabilitystr = '{0}%'.format(probability)
+                        msg = ''
+                        if can_notify:
+                            msg = notify(msg, ctx)
+                        else:
+                            msg = "Notifying disabled. "
+                        msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
+                        msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
+                        for formatter in (description, videourl):
+                            msg = formatter(msg, launch)
+                        sent_msg = await ctx.send(msg)
+                        await asyncio.sleep(10)
+                        while 1:
+                            launch = launchlibrary.Launch.next(api, 1)[0]
+                            launchtime_tz = launch.net
+                            utc = datetime.now(timezone.utc)
+                            T = chop_microseconds(launchtime_tz - utc)
+                            if T > timedelta(0):
+                                launchname = launch.name
+                                tz = launchtime_tz.tzname()
+                                launchtime = launchtime_tz.replace(tzinfo=None)
+                                probability = launch.probability
+                                if probability == -1:
+                                    probabilitystr = "Probability not available."
+                                else:
+                                    probabilitystr = '{0}%'.format(probability)
+                                msg = ''
+                                if can_notify:
+                                    msg = notify(msg, ctx)
+                                else:
+                                    msg = "Notifying disabled. "
+                                msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
+                                msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
+                                for formatter in (description, videourl):
+                                    msg = formatter(msg, launch)
+                                await sent_msg.edit(content=msg)
+                                await asyncio.sleep(30)
+                            else:
+                                break
+
                     else:
-                        probabilitystr = '{0}%'.format(probability)
-                    msg = ''
-                    if can_notify:
-                        msg = notify(msg, ctx)
-                    else:
-                        msg = "Notifying disabled. "
-                    msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
-                    msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
-                    for formatter in (description, videourl):
-                        msg = formatter(msg, launch)
-                    await ctx.send(msg)
-                    await asyncio.sleep(alerttime*60)
-                else:
-                    await asyncio.sleep(40)
+                        await asyncio.sleep(40)
+            else:
+                await ctx.send("Why would you even want it to be that big?")
         else:
             await ctx.send("You don't have permission to do that.")
 
@@ -342,22 +381,31 @@ async def shutdown(ctx):
     author = ctx.author
     if author.id in abusers:
         await ctx.send("Your killing privileges have been revoked!")
-        return
-    roles = author.roles
-    is_admin = False
-    for role in roles:
-        if str(role) in powerroles:
-            is_admin = True
-            break
-    if author.id in authorities or is_admin:
-        msgs = ['If you say so :,(', 'Your wish is my command!', 'Anything for you milord!', ':,(', 'NOOOOOOOOOOOOOOOOOoooooooo.......']
-        msg = choice(msgs)
-        await ctx.send(msg)
-        f = "killers.txt"
-        killlog = open(f, 'a')
-        killlog.write(str(author.id))
-        await bot.logout()
-
     else:
-        await ctx.send("You can't tell me what to do!")
+        roles = author.roles
+        is_admin = False
+        for role in roles:
+            if str(role) in powerroles:
+                is_admin = True
+                break
+        if author.id in authorities or is_admin:
+            msgs = ['If you say so :,(', 'Your wish is my command!', 'Anything for you milord!', ':,(', 'NOOOOOOOOOOOOOOOOOoooooooo.......']
+            msg = choice(msgs)
+            await ctx.send(msg)
+            f = "killers.txt"
+            killlog = open(f, 'a')
+            killlog.write(str(author.id))
+            await bot.logout()
+
+        else:
+            await ctx.send("You can't tell me what to do!")
+
+@bot.command()
+async def git(ctx):
+    """Gives link to the bot's github page.
+    """
+    if can_answer(ctx):
+        msg = "https://github.com/Eerolz/launchbot"
+        await ctx.send(msg)
+
 bot.run(TOKEN)
