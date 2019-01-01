@@ -1,5 +1,7 @@
 # launchbot
-Discord bot using discord.py and python-launch-library.
+A discord bot that can alert about happening launches, and can be asked information about them as well as past ones.
+
+This uses discord.py and python-launch-library.
 
 
 ## Setup
@@ -72,7 +74,7 @@ Example:
 Abusers = 217611345669749337, 217611295369123377
 ```
 You should leave this empty, but if someone kills the bot without reason, you can put their user ID here.
-The killer's ID will be logged to killers.txt. 
+The killer's ID will be logged to killers.txt.
 
 ##### Cannotify
 Can the bot notify launch notify channel
@@ -107,5 +109,5 @@ Example:
 ```
 
 
-You can ask questions or suggest commands on my [testserver](https://discord.gg/zYpAFsw).
+You can ask questions or suggest commands on my [testserver](https://discord.gg/q5Xhk4S).
 Or feel free to open issues and pull requests.
