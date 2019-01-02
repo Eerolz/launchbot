@@ -60,6 +60,36 @@ def can_answer(ctx):
     else:
         return True
 
+def launchalertformatter(ctx, launchid):
+    launch = launchlibrary.Launch.fetch(api, id=launchid)[0]
+    launchtime_tz = launch.net
+    utc = datetime.now(timezone.utc)
+    T_minus = chop_microseconds(launchtime_tz - utc)
+    if T_minus < timedelta(0):
+        T_plus = chop_microseconds(utc - launchtime_tz)
+        T_str = "T+ {0}".format(T_plus)
+    else:
+        T_str = "T- {0}".format(T_minus)
+    launchname = launch.name
+    tz = launchtime_tz.tzname()
+    launchtime = launchtime_tz.replace(tzinfo=None)
+    probability = launch.probability
+    launchstatus = launch.get_status()
+    if probability == -1:
+        probabilitystr = "Probability not available."
+    else:
+        probabilitystr = '{0}%'.format(probability)
+    msg = ''
+    if can_notify:
+        msg = notify(msg, ctx)
+    else:
+        msg = "Notifying disabled.\n"
+    msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\n{4}\nStatus: {5}\n'
+    msg = msg.format(launchname, launchtime, tz, probabilitystr, T_str, launchstatus.description)
+    for formatter in (description, videourl):
+        msg = formatter(msg, launch)
+    return launchstatus, msg
+
 class Launchcommands:
     """Commands related to rocket launches."""
 
@@ -127,57 +157,20 @@ class Launchcommands:
                     utc = datetime.now(timezone.utc)
                     T = chop_microseconds(launchtime_tz - utc)
                     if T < timedelta(minutes=alerttime):
-                        launchname = launch.name
-                        tz = launchtime_tz.tzname()
-                        launchtime = launchtime_tz.replace(tzinfo=None)
-                        probability = launch.probability
-                        if probability == -1:
-                            probabilitystr = "Probability not available."
-                        else:
-                            probabilitystr = '{0}%'.format(probability)
-                        msg = ''
-                        if can_notify:
-                            msg = notify(msg, ctx)
-                        else:
-                            msg = "Notifying disabled. "
-                        msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
-                        msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
-                        for formatter in (description, videourl):
-                            msg = formatter(msg, launch)
+                        launchid = launch.id
+                        status, msg = launchalertformatter(ctx, launchid)
                         sent_msg = await ctx.send(msg)
-                        await asyncio.sleep(10)
+                        await asyncio.sleep(15)
                         while 1:
-                            launch = launchlibrary.Launch.next(api, 1)[0]
-                            launchtime_tz = launch.net
-                            utc = datetime.now(timezone.utc)
-                            T = chop_microseconds(launchtime_tz - utc)
-                            if T > timedelta(0):
-                                launchname = launch.name
-                                tz = launchtime_tz.tzname()
-                                launchtime = launchtime_tz.replace(tzinfo=None)
-                                probability = launch.probability
-                                if probability == -1:
-                                    probabilitystr = "Probability not available."
-                                else:
-                                    probabilitystr = '{0}%'.format(probability)
-                                msg = ''
-                                if can_notify:
-                                    msg = notify(msg, ctx)
-                                else:
-                                    msg = "Notifying disabled. "
-                                msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
-                                msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
-                                for formatter in (description, videourl):
-                                    msg = formatter(msg, launch)
-                                await sent_msg.edit(content=msg)
-                                await asyncio.sleep(30)
-                            else:
+                            status, msg = launchalertformatter(ctx, launchid)
+                            await sent_msg.edit(content=msg)
+                            await asyncio.sleep(15)
+                            if status.id in (2, 3, 4, 7):
                                 break
-
                     else:
                         await asyncio.sleep(40)
             else:
-                await ctx.send("Why would you even want it to be that big?")
+                await ctx.send("You sure would like to know early.")
         else:
             await ctx.send("You don't have permission to do that.")
 
