@@ -76,14 +76,21 @@ Abusers = 217611345669749337, 217611295369123377
 You should leave this empty, but if someone kills the bot without reason, you can put their user ID here.
 The killer's ID will be logged to killers.txt.
 
-##### Cannotify
+##### Can_notify
 Can the bot notify launch notify channel
 ```
 Cannotify = yes
 ```
 For notification to work, you need 'Launch notify' named role.
 
-##### Islimited
+##### Keep_message
+Will the bot keep the message it has sent or delete it after while
+```
+Keep_message = yes
+```
+
+
+##### Is_limited
 Is the bot limited only to channels by certain names.
 ```
 Islimited = yes

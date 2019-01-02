@@ -31,6 +31,7 @@ prefix = config['BOT']['Prefix'].strip("'")
 TOKEN = config['BOT']['Token']
 # other bot settings
 can_notify = config['SETTINGS'].getboolean('Can_notify')
+keep_message = config['SETTINGS'].getboolean('Keep_message')
 # channel limitation settings
 limit_channels = config['CHANNELS'].getboolean('Is_limited')
 if limit_channels:
@@ -46,7 +47,7 @@ def chop_microseconds(delta):
 
 async def send(ctx, msg, args):
     sent_msg = await ctx.send(msg)
-    if '-k' not in args:
+    if '-k' not in args and not keep_message:
         await asyncio.sleep(15)
         await sent_msg.delete()
 
@@ -307,8 +308,9 @@ class Launchcommands:
         utc = datetime.now(timezone.utc)
         T = chop_microseconds(launchtime - utc)
         sent_msg = await ctx.send('{0}'.format(T))
-        await asyncio.sleep(5)
-        await sent_msg.delete()
+        if not keep_message:
+            await asyncio.sleep(15)
+            await sent_msg.delete()
 
 bot.add_cog(Launchcommands())
 
@@ -376,7 +378,7 @@ bot.add_cog(Rocketcommands())
 @bot.command(name="die")
 async def shutdown(ctx):
     """Allows moderators to kill the bot.
-    Please don't abuse this, or I might have to remove it.
+    Please don't abuse this, or I might lose your privileges.
     """
     author = ctx.author
     if author.id in abusers:
