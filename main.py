@@ -152,23 +152,25 @@ class Launchcommands:
                 msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
                 await ctx.send(msg)
                 while 1:
-                    launch = launchlibrary.Launch.next(api, 1)[0]
-                    launchtime_tz = launch.net
-                    utc = datetime.now(timezone.utc)
-                    T = chop_microseconds(launchtime_tz - utc)
-                    if T < timedelta(minutes=alerttime):
-                        launchid = launch.id
-                        status, msg = launchalertformatter(ctx, launchid)
-                        sent_msg = await ctx.send(msg)
-                        await asyncio.sleep(15)
-                        while 1:
+                    launch = launchlibrary.Launch.next(api, 1)
+                    if launch:
+                        launch = launch[0]
+                        launchtime_tz = launch.net
+                        utc = datetime.now(timezone.utc)
+                        T = chop_microseconds(launchtime_tz - utc)
+                        if T < timedelta(minutes=alerttime):
+                            launchid = launch.id
                             status, msg = launchalertformatter(ctx, launchid)
-                            await sent_msg.edit(content=msg)
+                            sent_msg = await ctx.send(msg)
                             await asyncio.sleep(15)
-                            if status.id in (2, 3, 4, 7):
-                                break
-                    else:
-                        await asyncio.sleep(40)
+                            while 1:
+                                status, msg = launchalertformatter(ctx, launchid)
+                                await sent_msg.edit(content=msg)
+                                await asyncio.sleep(15)
+                                if status.id in (2, 3, 4, 7):
+                                    break
+                        else:
+                            await asyncio.sleep(40)
             else:
                 await ctx.send("You sure would like to know early.")
         else:
@@ -251,7 +253,7 @@ class Launchcommands:
             if arg.isdigit():
                 num = int(arg)
         launches = launchlibrary.Launch.fetch(api, name=name)
-        msg = ""
+        msg = "**Listing launches found with {0}:**\n".format(name)
         if launches:
             for launch in launches[:num]:
                 msg += launch.name
@@ -281,7 +283,7 @@ class Launchcommands:
             if arg.isdigit():
                 num = int(arg)
         launches = launchlibrary.Launch.next(api, num)
-        msg = ""
+        msg = "**Listing next launches:**\n"
         for launch in launches:
             msg += launch.name
             if "-s" in args:
@@ -375,7 +377,7 @@ async def shutdown(ctx):
     """
     author = ctx.author
     if author.id in abusers:
-        await ctx.send("Your killing privileges have been revoked!")
+        await ctx.send("Your no longer can kill me!")
     else:
         roles = author.roles
         is_admin = False
