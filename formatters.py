@@ -56,7 +56,7 @@ def notify(msg, ctx):
     roles = ctx.guild.roles
     launchrole = None
     for role in roles:
-        if role.name == 'Launch notify':
+        if role.name.lower() == 'launch notify':
             launchrole = role
     if launchrole:
         msg += '{0}\n'.format(launchrole.mention)

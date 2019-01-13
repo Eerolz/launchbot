@@ -60,13 +60,67 @@ def can_answer(ctx):
     else:
         return True
 
-def launchalertformatter(ctx, launchid):
-    launch = launchlibrary.Launch.fetch(api, id=launchid)[0]
+def get_next_update(launch):
+    launchtime_tz = launch.net
+    utc = datetime.now(timezone.utc)
+    T = chop_microseconds(launchtime_tz - utc)
+    T_plus = timedelta(0)
+    if T < timedelta(0):
+        T_plus = chop_microseconds(utc - launchtime_tz)
+        T = T_plus
+    if launch.get_status().id in (2, 3, 4, 7):
+        return -1
+    elif T < timedelta(minutes=10):
+        return 10
+    elif T < timedelta(hours=1):
+        return round(T.total_seconds()/60)
+    elif T < timedelta(hours=2):
+        return 60
+    elif T_plus < timedelta(hours=6):
+        return 15*60
+    else:
+        return -1
+
+async def alertupdater(launch, channel):
+    launchid = launch.id
+    next_update = 0
+    while next_update != -1:
+        new_data = False
+        launch_last = launch
+        launchlist = launchlibrary.Launch.fetch(api, id=launchid)
+        if launchlist:
+            launch = launchlist[0]
+            msg = 'New data for **{0}**:\n'.format(launch.name)
+            status = launch.get_status()
+            if launch_last.get_status() != status:
+                new_data = True
+                msg += 'Status: {0}\n'.format(status.description)
+                if status.id in (2, 4, 5, 7):
+                    if launch.holdreason:
+                        reason = launch.holdreason
+                    else:
+                        reason = launch.failreason
+                    msg += 'Reason: {0}'.format(reason)
+            if launch_last.probability != launch.probability:
+                probability = launch.probability
+                if probability != -1:
+                    new_data = True
+                    msg += 'Weather probability: {0}%\n'.format(probability)
+            if new_data:
+                await channel.send(content=msg)
+        next_update = get_next_update(launch)
+        await asyncio.sleep(next_update)
+
+async def launchalertformatter(ctx, launch):
+    """Formats the message for launchalert"""
     launchtime_tz = launch.net
     utc = datetime.now(timezone.utc)
     T_minus = chop_microseconds(launchtime_tz - utc)
+    T_plus = timedelta(0)
+    T = T_minus
     if T_minus < timedelta(0):
         T_plus = chop_microseconds(utc - launchtime_tz)
+        T = T_plus
         T_str = "T+ {0}".format(T_plus)
     else:
         T_str = "T- {0}".format(T_minus)
@@ -88,7 +142,7 @@ def launchalertformatter(ctx, launchid):
     msg = msg.format(launchname, launchtime, tz, probabilitystr, T_str, launchstatus.description)
     for formatter in (description, videourl):
         msg = formatter(msg, launch)
-    return launchstatus, msg
+    return msg, launch
 
 class Launchcommands:
     """Commands related to rocket launches."""
@@ -151,6 +205,7 @@ class Launchcommands:
                 alerttime = int(alerttime)
                 msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
                 await ctx.send(msg)
+                channel = ctx.message.channel
                 while 1:
                     launch = launchlibrary.Launch.next(api, 1)
                     if launch:
@@ -159,16 +214,11 @@ class Launchcommands:
                         utc = datetime.now(timezone.utc)
                         T = chop_microseconds(launchtime_tz - utc)
                         if T < timedelta(minutes=alerttime):
-                            launchid = launch.id
-                            status, msg = launchalertformatter(ctx, launchid)
-                            sent_msg = await ctx.send(msg)
-                            await asyncio.sleep(15)
-                            while 1:
-                                status, msg = launchalertformatter(ctx, launchid)
-                                await sent_msg.edit(content=msg)
-                                await asyncio.sleep(15)
-                                if status.id in (2, 3, 4, 7):
-                                    break
+                            msg, launch = await launchalertformatter(ctx, launch)
+                            await channel.send(msg)
+                            updaterloop = asyncio.create_task(alertupdater(launch, channel))
+                            await updaterloop
+                            asyncio.sleep(T.total_seconds)
                         else:
                             await asyncio.sleep(40)
             else:
@@ -386,7 +436,7 @@ async def shutdown(ctx):
                 is_admin = True
                 break
         if author.id in authorities or is_admin:
-            msgs = ['If you say so :,(', 'Your wish is my command!', 'Anything for you milord!', ':,(', 'NOOOOOOOOOOOOOOOOOoooooooo.......']
+            msgs = ['My life is forfeit!', 'If you say so :´(', 'Your wish is my command!', 'Anything for you milord!', ":´(", 'NOOOOOOOOOOOOOOOOOoooooooo.......', 'My life for Aiur!']
             msg = choice(msgs)
             await ctx.send(msg)
             f = "killers.txt"
