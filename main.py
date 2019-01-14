@@ -1,5 +1,9 @@
 #!/usr/bin/python3
+import os
+import sys
+import subprocess
 import configparser
+import discord
 from discord.ext import commands
 import launchlibrary
 import asyncio
@@ -12,20 +16,13 @@ configfile = "config.ini"
 config = configparser.ConfigParser()
 config.read(configfile)
 
-# who can kill the bot
+# bot operators
 authorities = config['AUTHORITIES']['Authorities']
 if authorities:
     authorities = authorities.split(',')
     authorities = list(map(int, authorities))
 else:
     authorities = []
-powerroles = config['AUTHORITIES']['Powerroles'].split(',')
-abusers = config['AUTHORITIES']['Abusers']
-if abusers:
-    abusers = abusers.split(',')
-    abusers = list(map(int, abusers))
-else:
-    abusers = []
 # bot configuration
 prefix = config['BOT']['Prefix'].strip("'")
 TOKEN = config['BOT']['Token']
@@ -142,7 +139,7 @@ async def launchalertformatter(ctx, launch):
     msg = msg.format(launchname, launchtime, tz, probabilitystr, T_str, launchstatus.description)
     for formatter in (description, videourl):
         msg = formatter(msg, launch)
-    return msg, launch
+    return msg
 
 class Launchcommands:
     """Commands related to rocket launches."""
@@ -184,6 +181,7 @@ class Launchcommands:
                 msg = formatter(msg, launch)
         await send(ctx, msg, args)
 
+
     @commands.command()
     async def launchalert(self, ctx, alerttime='15'):
         """Enables launch alerts until next shutdown.
@@ -194,18 +192,13 @@ class Launchcommands:
         if not can_answer(ctx):
             return
         author = ctx.author
-        roles = author.roles
-        is_admin = False
-        for role in roles:
-            if str(role) in powerroles:
-                is_admin = True
-                break
-        if author.id in authorities or is_admin:
+        if author.server_permissions.administrator or author.id in authorities:
             if len(alerttime) < 6:
                 alerttime = int(alerttime)
                 msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
                 await ctx.send(msg)
                 channel = ctx.message.channel
+                launchid = None
                 while 1:
                     launch = launchlibrary.Launch.next(api, 1)
                     if launch:
@@ -213,12 +206,12 @@ class Launchcommands:
                         launchtime_tz = launch.net
                         utc = datetime.now(timezone.utc)
                         T = chop_microseconds(launchtime_tz - utc)
-                        if T < timedelta(minutes=alerttime):
-                            msg, launch = await launchalertformatter(ctx, launch)
+                        if T < timedelta(minutes=alerttime) and launch.id != launchid:
+                            msg = await launchalertformatter(ctx, launch)
                             await channel.send(msg)
                             updaterloop = asyncio.create_task(alertupdater(launch, channel))
                             await updaterloop
-                            asyncio.sleep(T.total_seconds)
+                            launchid = launch.id
                         else:
                             await asyncio.sleep(40)
             else:
@@ -422,30 +415,59 @@ bot.add_cog(Rocketcommands())
 
 @bot.command(name="die")
 async def shutdown(ctx):
-    """Allows moderators to kill the bot.
-    Please don't abuse this, or I might lose your privileges.
-    """
+    """Allows bots operator to kill the bot."""
     author = ctx.author
-    if author.id in abusers:
-        await ctx.send("Your no longer can kill me!")
+    if author.id in authorities:
+        msgs = ['My life is forfeit!', 'If you say so :´(', 'Your wish is my command!',
+        'Anything for you milord!', ":´(", 'NOOOOOOOOOOOOOOOOOoooooooo.......',
+        'My life for Aiur!']
+        msg = choice(msgs)
+        await ctx.send(msg)
+        f = "killers.txt"
+        killlog = open(f, 'a')
+        killlog.write(str(author.id))
+        await bot.logout()
     else:
-        roles = author.roles
-        is_admin = False
-        for role in roles:
-            if str(role) in powerroles:
-                is_admin = True
-                break
-        if author.id in authorities or is_admin:
-            msgs = ['My life is forfeit!', 'If you say so :´(', 'Your wish is my command!', 'Anything for you milord!', ":´(", 'NOOOOOOOOOOOOOOOOOoooooooo.......', 'My life for Aiur!']
-            msg = choice(msgs)
-            await ctx.send(msg)
-            f = "killers.txt"
-            killlog = open(f, 'a')
-            killlog.write(str(author.id))
-            await bot.logout()
+        await ctx.send("You can't tell me what to do!")
 
-        else:
-            await ctx.send("You can't tell me what to do!")
+@bot.command()
+async def pull(ctx):
+    """Allows bots operator to update the bot."""
+    author = ctx.author
+    if author.id in authorities:
+        out = subprocess.Popen(['git', 'pull'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        stdout,stderr = out.communicate()
+        stdout = stdout.decode("utf-8")
+        msg = '**Output: **{0}\n'.format(stdout)
+        if stderr:
+            stderr = stderr.decode("utf-8")
+            msg += '**Error: **\n{0}'.format(stderr)
+        print(msg)
+        await ctx.send(msg)
+    else:
+        await ctx.send("You can't tell me what to do!")
+
+
+@bot.command(name="restart")
+async def restart_cmd(ctx):
+    """Allows bots operator to kill the bot."""
+    author = ctx.author
+    if author.id in authorities:
+        msg = "Restarting myself."
+        await ctx.send(msg)
+        f = "killers.txt"
+        killlog = open(f, 'a')
+        killlog.write(str(author.id)+' restart')
+        restarter = asyncio.create_task(restart())
+        await restarter
+        await bot.logout()
+    else:
+        await ctx.send("You can't tell me what to do!")
+
+async def restart():
+    await asyncio.sleep(25)
+    os.execl(sys.executable, sys.executable, *sys.argv)
+
 
 @bot.command()
 async def git(ctx):
@@ -454,5 +476,38 @@ async def git(ctx):
     if can_answer(ctx):
         msg = "https://github.com/Eerolz/launchbot"
         await ctx.send(msg)
+
+@bot.event
+async def on_ready():
+    act_def = discord.Activity(type=discord.ActivityType.watching, name='Launch Library')
+    print("Launchbot operational!")
+    while 1:
+        launchlist = launchlibrary.Launch.next(api, 1)
+        if launchlist:
+            launch = launchlist[0]
+            launchtime = launch.net
+            utc = datetime.now(timezone.utc)
+            T = chop_microseconds(launchtime - utc)
+            name = 'countdown: {0}'.format(T)
+            act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
+            await bot.change_presence(activity=act_T)
+            if T < timedelta(minutes=10):
+                check = 10
+            elif T < timedelta(hours=1):
+                check = round(T.total_seconds()/60)
+            elif T < timedelta(hours=2):
+                check = 60
+            elif T < timedelta(days=1):
+                check = 15*60
+            else:
+                check = 60*60
+                await bot.change_presence(activity=act_def)
+            await asyncio.sleep(check)
+        else:
+            await bot.change_presence(activity=act_def)
+
+
+
+
 
 bot.run(TOKEN)

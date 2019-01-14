@@ -51,30 +51,14 @@ Token = NTwAsdk3OTIxNjasDfU51235.Dv7GsA.fmAI2nvEJWqWeEtygDyW4456EMQ
 The token allows people to take over your bot, so don't give it to anyone.
 
 ##### Authorities
-List of user IDs of people who can command the bot to shut down.
+List of user IDs of people who can command the bot to shut down etc.
 To get user ID, you must enable developer mode in discord. (Appearance settings)
 Right click user, and click "Copy ID"
 Example:
 ```
 Authorities = 217611234569749337, 217611234569123377
 ```
-
-##### Powerroles
-List of rolenames that can command the bot to shut down.
-Example:
-```
-Powerroles = Admin, Owner, Moderator
-```
-If this bot is public and free for anyone to add to their server, this list should be empty to prevent random people from commanding the bot to shut down.
-
-##### Abusers
-List of user IDs that can never command the bot to shut down.
-Example:
-```
-Abusers = 217611345669749337, 217611295369123377
-```
-You should leave this empty, but if someone kills the bot without reason, you can put their user ID here.
-The killer's ID will be logged to killers.txt.
+Having your user ID is extremely helpful when restarting the bot.
 
 ##### Can_notify
 Can the bot notify launch notify channel
