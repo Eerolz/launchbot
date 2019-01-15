@@ -192,7 +192,7 @@ class Launchcommands:
         if not can_answer(ctx):
             return
         author = ctx.author
-        if author.server_permissions.administrator or author.id in authorities:
+        if author.guild_permissions.administrator or author.id in authorities:
             if len(alerttime) < 6:
                 alerttime = int(alerttime)
                 msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
@@ -442,7 +442,6 @@ async def pull(ctx):
         if stderr:
             stderr = stderr.decode("utf-8")
             msg += '**Error: **\n{0}'.format(stderr)
-        print(msg)
         await ctx.send(msg)
     else:
         await ctx.send("You can't tell me what to do!")
