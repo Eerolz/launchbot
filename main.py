@@ -50,7 +50,10 @@ async def send(ctx, msg, args):
 
 def can_answer(ctx):
     if limit_channels:
-        if ctx.channel.name in channels:
+        author = ctx.author
+        if (ctx.channel.name in channels
+        or author.server_permissions.administrator
+        or author.id in authorities):
             return True
         else:
             return False
@@ -58,9 +61,11 @@ def can_answer(ctx):
         return True
 
 def get_next_update(launch):
+    """How often will launchalertupdater check for updates."""
     launchtime_tz = launch.net
     utc = datetime.now(timezone.utc)
     T = chop_microseconds(launchtime_tz - utc)
+    T_minus = T
     T_plus = timedelta(0)
     if T < timedelta(0):
         T_plus = chop_microseconds(utc - launchtime_tz)
@@ -73,7 +78,7 @@ def get_next_update(launch):
         return round(T.total_seconds()/60)
     elif T < timedelta(hours=2):
         return 60
-    elif T_plus < timedelta(hours=6):
+    elif T_plus < timedelta(hours=6) or T_minus > timedelta(0):
         return 15*60
     else:
         return -1
@@ -97,7 +102,7 @@ async def alertupdater(launch, channel):
                         reason = launch.holdreason
                     else:
                         reason = launch.failreason
-                    msg += 'Reason: {0}'.format(reason)
+                    msg += 'Reason: {0}\n'.format(reason)
             if launch_last.probability != launch.probability:
                 probability = launch.probability
                 if probability != -1:
@@ -106,6 +111,7 @@ async def alertupdater(launch, channel):
             if new_data:
                 await channel.send(content=msg)
         next_update = get_next_update(launch)
+        print(next_update)
         await asyncio.sleep(next_update)
 
 async def launchalertformatter(ctx, launch):
@@ -192,7 +198,7 @@ class Launchcommands:
         if not can_answer(ctx):
             return
         author = ctx.author
-        if author.server_permissions.administrator or author.id in authorities:
+        if author.guild_permissions.administrator or author.id in authorities:
             if len(alerttime) < 6:
                 alerttime = int(alerttime)
                 msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
@@ -312,7 +318,7 @@ class Launchcommands:
     @commands.command()
     async def listlaunches(self, ctx, *args):
         """Lists next launches.
-        Note: only gives launches with determined launch windows.
+        Note: only gives launches that are GO.
 
         [int]     The number of launches listed. Default is 5, max is 10.
         -k        Does not automatically delete bot message.
@@ -442,7 +448,6 @@ async def pull(ctx):
         if stderr:
             stderr = stderr.decode("utf-8")
             msg += '**Error: **\n{0}'.format(stderr)
-        print(msg)
         await ctx.send(msg)
     else:
         await ctx.send("You can't tell me what to do!")
@@ -453,19 +458,20 @@ async def restart_cmd(ctx):
     """Allows bots operator to kill the bot."""
     author = ctx.author
     if author.id in authorities:
-        msg = "Restarting myself."
+        msg = "Restarting myself..."
         await ctx.send(msg)
         f = "killers.txt"
         killlog = open(f, 'a')
         killlog.write(str(author.id)+' restart')
         restarter = asyncio.create_task(restart())
+        print(msg)
         await restarter
         await bot.logout()
     else:
         await ctx.send("You can't tell me what to do!")
 
 async def restart():
-    await asyncio.sleep(25)
+    await asyncio.sleep(10)
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 
@@ -485,29 +491,29 @@ async def on_ready():
         launchlist = launchlibrary.Launch.next(api, 1)
         if launchlist:
             launch = launchlist[0]
-            launchtime = launch.net
-            utc = datetime.now(timezone.utc)
-            T = chop_microseconds(launchtime - utc)
-            name = 'countdown: {0}'.format(T)
-            act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
-            await bot.change_presence(activity=act_T)
-            if T < timedelta(minutes=10):
-                check = 10
-            elif T < timedelta(hours=1):
-                check = round(T.total_seconds()/60)
-            elif T < timedelta(hours=2):
-                check = 60
-            elif T < timedelta(days=1):
-                check = 15*60
-            else:
-                check = 60*60
-                await bot.change_presence(activity=act_def)
-            await asyncio.sleep(check)
+        launchtime = launch.net
+        utc = datetime.now(timezone.utc)
+        T = chop_microseconds(launchtime - utc)
+        name = 'countdown: {0}'.format(T)
+        act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
+        await bot.change_presence(activity=act_T)
+        if T < timedelta(minutes=10):
+            check = 10
+        elif T < timedelta(hours=1):
+            check = round(T.total_seconds()/60)
+        elif T < timedelta(hours=2):
+            check = 60
+        elif T < timedelta(days=1):
+            check = 15*60
         else:
+            check = 60*60
             await bot.change_presence(activity=act_def)
+        await asyncio.sleep(check)
 
-
-
-
-
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        return
+    else:
+        print(error)
 bot.run(TOKEN)
