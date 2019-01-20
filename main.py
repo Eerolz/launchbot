@@ -150,7 +150,7 @@ async def launchalertformatter(ctx, launch):
 class Launchcommands:
     """Commands related to rocket launches."""
 
-    @commands.command()
+    @commands.command(aliases=['nl', 'nela'])
     async def nextlaunch(self, ctx, *args):
         """Tells information about next launch.
 
@@ -225,7 +225,7 @@ class Launchcommands:
         else:
             await ctx.send("You don't have permission to do that.")
 
-    @commands.command()
+    @commands.command(aliases=['laid'])
     async def launchbyid(self, ctx, *args):
         """Tells information about launch with provided ID.
 
@@ -257,7 +257,7 @@ class Launchcommands:
             msg = "No ID provided."
         await send(ctx, msg, args)
 
-    @commands.command()
+    @commands.command(aliases=['lana'])
     async def launchbyname(self, ctx, name, *args):
         """Tells information about launch with provided name.
 
@@ -287,12 +287,13 @@ class Launchcommands:
             msg = "No launch found with name provided."
         await send(ctx, msg, args)
 
-    @commands.command()
+    @commands.command(aliases=['lina'])
     async def listbyname(self, ctx, name, *args):
         """Lists launches with provided name.
 
         [int]     The number of launches listed. Default is 5, max 10.
         -k        Does not automatically delete bot message.
+        -s        Include launch status.
         -id       Include the IDs of the launches.
         """
         if not can_answer(ctx):
@@ -315,7 +316,7 @@ class Launchcommands:
             msg = "No launches found with provided name."
         await send(ctx, msg, args)
 
-    @commands.command()
+    @commands.command(aliases=['lila'])
     async def listlaunches(self, ctx, *args):
         """Lists next launches.
         Note: only gives launches that are GO.
@@ -342,7 +343,7 @@ class Launchcommands:
             msg += "\n"
         await send(ctx, msg, args)
 
-    @commands.command()
+    @commands.command(aliases=['tm'])
     async def tminus(self, ctx):
         """Tells time to NET of next launch."""
         if not can_answer(ctx):
@@ -424,9 +425,9 @@ async def shutdown(ctx):
     """Allows bots operator to kill the bot."""
     author = ctx.author
     if author.id in authorities:
-        msgs = ['My life is forfeit!', 'If you say so :´(', 'Your wish is my command!',
+        msgs = ('My life is forfeit!', 'If you say so :´(', 'Your wish is my command!',
         'Anything for you milord!', ":´(", 'NOOOOOOOOOOOOOOOOOoooooooo.......',
-        'My life for Aiur!']
+        'My life for Aiur!')
         msg = choice(msgs)
         await ctx.send(msg)
         f = "killers.txt"
@@ -455,7 +456,7 @@ async def pull(ctx):
 
 @bot.command(name="restart")
 async def restart_cmd(ctx):
-    """Allows bots operator to kill the bot."""
+    """Allows bots operator to restart the bot."""
     author = ctx.author
     if author.id in authorities:
         msg = "Restarting myself..."
@@ -477,8 +478,7 @@ async def restart():
 
 @bot.command()
 async def git(ctx):
-    """Gives link to the bot's github page.
-    """
+    """Gives link to the bot's github page."""
     if can_answer(ctx):
         msg = "https://github.com/Eerolz/launchbot"
         await ctx.send(msg)
@@ -497,8 +497,8 @@ async def on_ready():
         name = 'countdown: {0}'.format(T)
         act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
         await bot.change_presence(activity=act_T)
-        if T < timedelta(minutes=10):
-            check = 10
+        if T < timedelta(minutes=5):
+            check = 5
         elif T < timedelta(hours=1):
             check = round(T.total_seconds()/60)
         elif T < timedelta(hours=2):
