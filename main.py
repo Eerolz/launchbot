@@ -133,7 +133,7 @@ async def launchalertformatter(ctx, launch):
     probability = launch.probability
     launchstatus = launch.get_status()
     if probability == -1:
-        probabilitystr = "Probability not available."
+        probabilitystr = " not available"
     else:
         probabilitystr = '{0}%'.format(probability)
     msg = ''
@@ -171,7 +171,7 @@ class Launchcommands:
         launchtime = launchtime_tz.replace(tzinfo=None)
         probability = launch.probability
         if probability == -1:
-            probabilitystr = "Probability not available."
+            probabilitystr = "not available"
         else:
             probabilitystr = '{0}%'.format(probability)
         msg = ''
@@ -516,4 +516,5 @@ async def on_command_error(ctx, error):
         return
     else:
         print(error)
+
 bot.run(TOKEN)
