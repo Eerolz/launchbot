@@ -111,7 +111,6 @@ async def alertupdater(launch, channel):
             if new_data:
                 await channel.send(content=msg)
         next_update = get_next_update(launch)
-        print(next_update)
         await asyncio.sleep(next_update)
 
 async def launchalertformatter(ctx, launch):
