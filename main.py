@@ -269,6 +269,11 @@ class Launchcommands:
         """
         if not can_answer(ctx):
             return
+        for arg in args:
+            if arg.startswith('-'):
+                break
+            else:
+                name = name + ' ' + arg
         launches = launchlibrary.Launch.fetch(api, name=name)
         if launches:
             launch = launches[0]
@@ -290,7 +295,7 @@ class Launchcommands:
     async def listbyname(self, ctx, name, *args):
         """Lists launches with provided name.
 
-        [int]     The number of launches listed. Default is 5, max 10.
+        -[int]     The number of launches listed. Default is 5, max 10.
         -k        Does not automatically delete bot message.
         -s        Include launch status.
         -id       Include the IDs of the launches.
@@ -299,8 +304,13 @@ class Launchcommands:
             return
         num = 5
         for arg in args:
-            if arg.isdigit():
-                num = int(arg)
+            if arg.startswith('-'):
+                break
+            else:
+                name = name + ' ' + arg
+        for arg in args:
+            if arg[1:].isdigit() and arg.startswith('-'):
+                num = int(arg[1:])
         launches = launchlibrary.Launch.fetch(api, name=name)
         msg = "**Listing launches found with {0}:**\n".format(name)
         if launches:
