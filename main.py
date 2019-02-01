@@ -487,6 +487,7 @@ async def on_ready():
     act_def = discord.Activity(type=discord.ActivityType.watching, name='Launch Library')
     print("Launchbot operational!")
     while 1:
+        api = launchlibrary.Api()
         launchlist = launchlibrary.Launch.next(api, 1)
         if launchlist:
             launch = launchlist[0]
