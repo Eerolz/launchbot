@@ -161,30 +161,32 @@ class Launchcommands:
         """
         if not can_answer(ctx):
             return
-        launch = launchlibrary.Launch.next(api, 1)[0]
-        launchname = launch.name
-        launchtime_tz = launch.net
-        utc = datetime.now(timezone.utc)
-        tz = launchtime_tz.tzname()
-        T = chop_microseconds(launchtime_tz - utc)
-        launchtime = launchtime_tz.replace(tzinfo=None)
-        probability = launch.probability
-        if probability == -1:
-            probabilitystr = "not available"
-        else:
-            probabilitystr = '{0}%'.format(probability)
-        msg = ''
-        if '-n' in args:
-            if can_notify:
-                msg = notify(msg, ctx)
+        launches = launchlibrary.Launch.next(api, 1)
+        if launches:
+            launch = launches[0]
+            launchname = launch.name
+            launchtime_tz = launch.net
+            utc = datetime.now(timezone.utc)
+            tz = launchtime_tz.tzname()
+            T = chop_microseconds(launchtime_tz - utc)
+            launchtime = launchtime_tz.replace(tzinfo=None)
+            probability = launch.probability
+            if probability == -1:
+                probabilitystr = "not available"
             else:
-                msg = "Notifying disabled. "
-        msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
-        msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
-        for arg, formatter in (('-id', id), ('-d', description), ('-v', videourl)):
-            if arg in args:
-                msg = formatter(msg, launch)
-        await send(ctx, msg, args)
+                probabilitystr = '{0}%'.format(probability)
+            msg = ''
+            if '-n' in args:
+                if can_notify:
+                    msg = notify(msg, ctx)
+                else:
+                    msg = "Notifying disabled. "
+            msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
+            msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
+            for arg, formatter in (('-id', id), ('-d', description), ('-v', videourl)):
+                if arg in args:
+                    msg = formatter(msg, launch)
+            await send(ctx, msg, args)
 
 
     @commands.command()
@@ -496,29 +498,34 @@ async def git(ctx):
 async def on_ready():
     act_def = discord.Activity(type=discord.ActivityType.watching, name='Launch Library')
     print("Launchbot operational!")
+    launch = None
     while 1:
+        global api
         api = launchlibrary.Api()
         launchlist = launchlibrary.Launch.next(api, 1)
         if launchlist:
             launch = launchlist[0]
-        launchtime = launch.net
-        utc = datetime.now(timezone.utc)
-        T = chop_microseconds(launchtime - utc)
-        name = 'countdown: {0}'.format(T)
-        act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
-        await bot.change_presence(activity=act_T)
-        if T < timedelta(minutes=5):
-            check = 5
-        elif T < timedelta(hours=1):
-            check = round(T.total_seconds()/60)
-        elif T < timedelta(hours=2):
-            check = 60
-        elif T < timedelta(days=1):
-            check = 15*60
+        if launch:
+            launchtime = launch.net
+            utc = datetime.now(timezone.utc)
+            T = chop_microseconds(launchtime - utc)
+            name = 'countdown: {0}'.format(T)
+            act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
+            await bot.change_presence(activity=act_T)
+            if T < timedelta(minutes=5):
+                check = 5
+            elif T < timedelta(hours=1):
+                check = round(T.total_seconds()/60)
+            elif T < timedelta(hours=2):
+                check = 60
+            elif T < timedelta(days=1):
+                check = 15*60
+            else:
+                check = 60*60
+                await bot.change_presence(activity=act_def)
+            await asyncio.sleep(check)
         else:
-            check = 60*60
-            await bot.change_presence(activity=act_def)
-        await asyncio.sleep(check)
+            await asyncio.sleep(60*30)
 
 @bot.event
 async def on_command_error(ctx, error):
