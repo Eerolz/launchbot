@@ -327,7 +327,7 @@ class Launchcommands:
             msg = "No launches found with provided name."
         await send(ctx, msg, args)
 
-    @commands.command(aliases=['lila'])
+    @commands.command(aliases=['lila', 'll'])
     async def listlaunches(self, ctx, *args):
         """Lists next launches.
         Note: only gives launches that are GO.
@@ -525,7 +525,8 @@ async def on_ready():
                 await bot.change_presence(activity=act_def)
             await asyncio.sleep(check)
         else:
-            await asyncio.sleep(60*30)
+            await bot.change_presence(activity=act_def)
+            await asyncio.sleep(60*60)
 
 @bot.event
 async def on_command_error(ctx, error):
