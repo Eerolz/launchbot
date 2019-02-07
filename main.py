@@ -334,7 +334,7 @@ class Launchcommands:
 
         [int]     The number of launches listed. Default is 5, max is 10.
         -k        Does not automatically delete bot message.
-        -s        Include launch status.
+        -t        Gives T- to launches
         -id       Include the IDs of the launches.
         """
         if not can_answer(ctx):
@@ -347,8 +347,11 @@ class Launchcommands:
         msg = "**Listing next launches:**\n"
         for launch in launches:
             msg += launch.name
-            if "-s" in args:
-                msg += ", Status: {0}".format(launch.get_status().name)
+            if "-t" in args:
+                launchtime = launch.net
+                utc = datetime.now(timezone.utc)
+                T = chop_microseconds(launchtime - utc)
+                msg += ", T-: {0}".format(T)
             if "-id" in args:
                 msg += ", ID: {0}".format(launch.id)
             msg += "\n"
