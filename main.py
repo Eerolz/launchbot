@@ -297,9 +297,10 @@ class Launchcommands:
     async def listbyname(self, ctx, name, *args):
         """Lists launches with provided name.
 
-        -[int]     The number of launches listed. Default is 5, max 10.
+        -[int]    The number of launches listed. Default is 5, max 10.
         -k        Does not automatically delete bot message.
         -s        Include launch status.
+        -t        Includes the date and time of the launch. (NET)
         -id       Include the IDs of the launches.
         """
         if not can_answer(ctx):
@@ -320,6 +321,11 @@ class Launchcommands:
                 msg += launch.name
                 if "-s" in args:
                     msg += ", Status: {0}".format(launch.get_status().name)
+                if "-t" in args:
+                    net = launch.net
+                    msg += ", Date: {0}".format(net.date())
+                    if net.time() != datetime(2000, 1, 1, 0).time():
+                        msg += ", Time: {0}".format(net.time())
                 if "-id" in args:
                     msg += ", ID: {0}".format(launch.id)
                 msg += "\n"
