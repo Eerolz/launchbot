@@ -29,10 +29,18 @@ TOKEN = config['BOT']['Token']
 # other bot settings
 can_notify = config['SETTINGS'].getboolean('Can_notify')
 keep_message = config['SETTINGS'].getboolean('Keep_message')
-# channel limitation settings
-limit_channels = config['CHANNELS'].getboolean('Is_limited')
-if limit_channels:
-    channels = config['CHANNELS']['Channels'].split(',')
+# channel settings
+alertchannels = config['CHANNELS']['Alertchannels']
+if alertchannels:
+    alertchannels = alertchannels.split(',')
+    alertchannels = list(map(int, alertchannels))
+else:
+    alertchannels = []
+testchannelid = config['CHANNELS']['Testchannel']
+if testchannelid:
+    testchannelid = int(testchannelid)
+else:
+    testchannelid = None
 
 
 api = launchlibrary.Api()
@@ -49,16 +57,7 @@ async def send(ctx, msg, args):
         await sent_msg.delete()
 
 def can_answer(ctx):
-    if limit_channels:
-        author = ctx.author
-        if (ctx.channel.name in channels
-        or author.server_permissions.administrator
-        or author.id in authorities):
-            return True
-        else:
-            return False
-    else:
-        return True
+    return True
 
 def get_next_update(launch):
     """How often will launchalertupdater check for updates."""
@@ -83,7 +82,7 @@ def get_next_update(launch):
     else:
         return -1
 
-async def alertupdater(launch, channel):
+async def alertupdater(launch):
     launchid = launch.id
     next_update = 0
     while next_update != -1:
@@ -109,12 +108,14 @@ async def alertupdater(launch, channel):
                     new_data = True
                     msg += 'Weather probability: {0}%\n'.format(probability)
             if new_data:
-                await channel.send(content=msg)
+                for channelid in alertchannels:
+                    channel = bot.get_channel(channelid)
+                    await channel.send(content=msg)
         next_update = get_next_update(launch)
         await asyncio.sleep(next_update)
 
-async def launchalertformatter(ctx, launch):
-    """Formats the message for launchalert"""
+async def launchalertformatter(launch):
+    """Formats the message for launchalert (doesn't include mention)"""
     launchtime_tz = launch.net
     utc = datetime.now(timezone.utc)
     T_minus = chop_microseconds(launchtime_tz - utc)
@@ -136,10 +137,6 @@ async def launchalertformatter(ctx, launch):
     else:
         probabilitystr = '{0}%'.format(probability)
     msg = ''
-    if can_notify:
-        msg = notify(msg, ctx)
-    else:
-        msg = "Notifying disabled.\n"
     msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\n{4}\nStatus: {5}\n'
     msg = msg.format(launchname, launchtime, tz, probabilitystr, T_str, launchstatus.description)
     for formatter in (description, videourl):
@@ -194,37 +191,17 @@ class Launchcommands:
         """Enables launch alerts until next shutdown.
         Only authorities can use this.
 
-        [int]     Minutes before launch to alert. (default = 15)
+        [int]     Minutes before launch to alert. (default = 15, max = 99)
         """
-        if not can_answer(ctx):
-            return
         author = ctx.author
         if author.guild_permissions.administrator or author.id in authorities:
-            if len(alerttime) < 6:
-                alerttime = int(alerttime)
-                msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
-                await ctx.send(msg)
-                channel = ctx.message.channel
-                launchid = None
-                while 1:
-                    launch = launchlibrary.Launch.next(api, 1)
-                    if launch:
-                        launch = launch[0]
-                        launchtime_tz = launch.net
-                        utc = datetime.now(timezone.utc)
-                        T = chop_microseconds(launchtime_tz - utc)
-                        if T < timedelta(minutes=alerttime) and launch.id != launchid:
-                            msg = await launchalertformatter(ctx, launch)
-                            await channel.send(msg)
-                            updaterloop = asyncio.create_task(alertupdater(launch, channel))
-                            await updaterloop
-                            launchid = launch.id
-                        else:
-                            await asyncio.sleep(40)
-            else:
-                await ctx.send("You sure would like to know early.")
-        else:
-            await ctx.send("You don't have permission to do that.")
+            await ctx.send("Command currently disabled")
+            # if len(alerttime) < 2:
+            #     alerttime = int(alerttime)
+            #     msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
+            #     await ctx.send(msg)
+            # else:
+            #     await ctx.send("You sure would like to know early.")
 
     @commands.command(aliases=['laid'])
     async def launchbyid(self, ctx, *args):
@@ -506,8 +483,15 @@ async def git(ctx):
 @bot.event
 async def on_ready():
     act_def = discord.Activity(type=discord.ActivityType.watching, name='Launch Library')
+    if testchannelid:
+        testchannel = bot.get_channel(testchannelid)
+        await testchannel.send("Launchbot operational!")
     print("Launchbot operational!")
+
     launch = None
+    launchid = None
+    alerttime = 30
+
     while 1:
         global api
         api = launchlibrary.Api()
@@ -528,14 +512,28 @@ async def on_ready():
             elif T < timedelta(hours=2):
                 check = 60
             elif T < timedelta(days=1):
-                check = 15*60
+                check = 30*60
             else:
                 check = 60*60
                 await bot.change_presence(activity=act_def)
+            if T < timedelta(minutes=alerttime) and launch.id != launchid:
+                alertmsg = await launchalertformatter(launch)
+                for channelid in alertchannels:
+                    channel = bot.get_channel(testchannelid)
+                    msg = ''
+                    if can_notify:
+                        msg = notify(msg, channel)
+                    else:
+                        msg = "Notifying disabled.\n"
+                    await channel.send(msg + alertmsg)
+                updaterloop = asyncio.create_task(alertupdater(launch))
+                await updaterloop
+                launchid = launch.id
             await asyncio.sleep(check)
         else:
             await bot.change_presence(activity=act_def)
             await asyncio.sleep(60*60)
+
 
 @bot.event
 async def on_command_error(ctx, error):

@@ -73,24 +73,30 @@ Will the bot keep the message it has sent or delete it after while
 Keep_message = yes
 ```
 
-
-##### Is_limited
-Is the bot limited only to channels by certain names.
+##### Testchannel
+Where the bot sends message when online.
+Getting channel ID works similarly as getting user ID.
 ```
-Islimited = yes
+Testchannel = 432822312346572858
 ```
+You can leave this empty.
 
 ##### Channels
-List of channels that the bot can be used on if the previous setting is set to 'yes'.
+List of channels that the bot will send launchalerts on.
 ```
-Channels = test, bot-playground
+Channels = 432822312346572858, 432823212372491258
 ```
-You can leave this empty if Islimited is set to 'no'.
+You can leave this empty if you don't want launchalerts. This will change soon.
 
 ### Running the bot
 You can run the bot by using command:
 ```
 pipenv run main.py
+```
+If it doesn't work, try:
+```
+python3 pipenv shell
+python3 main.py
 ```
 Go to the server and test the bot!
 Show all commands by using prefix + help.
@@ -98,7 +104,7 @@ Example:
 ```
 !help
 ```
-
+Currently it doesn't update information after launch for some reason. Use `!restart` after every launch to make sure all information is correct. :( Hopefully will find a solution for this problem.
 
 You can ask questions or suggest commands on my [testserver](https://discord.gg/q5Xhk4S).
 Or feel free to open issues and pull requests.
