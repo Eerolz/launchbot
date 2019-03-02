@@ -519,7 +519,7 @@ async def on_ready():
             if T < timedelta(minutes=alerttime) and launch.id != launchid:
                 alertmsg = await launchalertformatter(launch)
                 for channelid in alertchannels:
-                    channel = bot.get_channel(testchannelid)
+                    channel = bot.get_channel(channelid)
                     msg = ''
                     if can_notify:
                         msg = notify(msg, channel)
