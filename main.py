@@ -52,9 +52,7 @@ def chop_microseconds(delta):
 
 async def send(ctx, msg, args):
     sent_msg = await ctx.send(msg)
-    if '-k' not in args and not keep_message:
-        await asyncio.sleep(15)
-        await sent_msg.delete()
+
 
 def can_answer(ctx):
     return True
@@ -150,7 +148,6 @@ class Launchcommands:
     async def nextlaunch(self, ctx, *args):
         """Tells information about next launch.
 
-        -k        Does not automatically delete bot message.
         -n        Notifies launch notify group.
         -id       Includes launch ID.
         -d        Includes mission description.
@@ -208,7 +205,6 @@ class Launchcommands:
         """Tells information about launch with provided ID.
 
         [int]     ID of the launch.
-        -k        Does not automatically delete bot message.
         -r        Includes holdreason and failreason
         -v        Includes video URL.
         -d        Includes mission description.
@@ -240,7 +236,6 @@ class Launchcommands:
         """Tells information about launch with provided name.
 
         "str"     Name of the launch. (always first)
-        -k        Does not automatically delete bot message.
         -id       Includes id of the launch.
         -r        Includes holdreason and failreason.
         -v        Includes video URL.
@@ -275,9 +270,7 @@ class Launchcommands:
         """Lists launches with provided name.
 
         -[int]    The number of launches listed. Default is 5, max 10.
-        -k        Does not automatically delete bot message.
         -s        Include launch status.
-        -t        Includes the date and time of the launch. (NET)
         -id       Include the IDs of the launches.
         """
         if not can_answer(ctx):
@@ -292,23 +285,22 @@ class Launchcommands:
             if arg[1:].isdigit() and arg.startswith('-'):
                 num = int(arg[1:])
         launches = launchlibrary.Launch.fetch(api, name=name)
-        msg = "**Listing launches found with {0}:**\n".format(name)
+        msg = discord.Embed(title="Listing launches found with {0}:\n".format(name))
         if launches:
             for launch in launches[:num]:
-                msg += launch.name
+                net = launch.net
+                value = "Date: {0}".format(net.date())
+                if net.time() != datetime(2000, 1, 1, 0).time(): # check if time is set to 0
+                    value += ", Time: {0}".format(net.time())
                 if "-s" in args:
-                    msg += ", Status: {0}".format(launch.get_status().name)
-                if "-t" in args:
-                    net = launch.net
-                    msg += ", Date: {0}".format(net.date())
-                    if net.time() != datetime(2000, 1, 1, 0).time():
-                        msg += ", Time: {0}".format(net.time())
+                    value += ", Status: {0}".format(launch.get_status().name)
                 if "-id" in args:
-                    msg += ", ID: {0}".format(launch.id)
-                msg += "\n"
+                    value += ", ID: {0}".format(launch.id)
+                msg.add_field(name=launch.name, value=value, inline=False)
+            await ctx.send(embed=msg)
         else:
             msg = "No launches found with provided name."
-        await send(ctx, msg, args)
+            await send(ctx, msg, args)
 
     @commands.command(aliases=['lila', 'll'])
     async def listlaunches(self, ctx, *args):
@@ -316,8 +308,6 @@ class Launchcommands:
         Note: only gives launches that are GO.
 
         [int]     The number of launches listed. Default is 5, max is 10.
-        -k        Does not automatically delete bot message.
-        -t        Gives T- to launches
         -id       Include the IDs of the launches.
         """
         if not can_answer(ctx):
@@ -327,18 +317,16 @@ class Launchcommands:
             if arg.isdigit():
                 num = int(arg)
         launches = launchlibrary.Launch.next(api, num)
-        msg = "**Listing next launches:**\n"
+        msg = discord.Embed(title="Listing next launches: ")
         for launch in launches:
-            msg += launch.name
-            if "-t" in args:
-                launchtime = launch.net
-                utc = datetime.now(timezone.utc)
-                T = chop_microseconds(launchtime - utc)
-                msg += ", T-: {0}".format(T)
+            launchtime = launch.net
+            utc = datetime.now(timezone.utc)
+            T = chop_microseconds(launchtime - utc)
+            value = "T-: {0}".format(T)
             if "-id" in args:
-                msg += ", ID: {0}".format(launch.id)
-            msg += "\n"
-        await send(ctx, msg, args)
+                value += ", ID: {0}".format(launch.id)
+            msg.add_field(name=launch.name, value=value, inline=False)
+        await ctx.send(embed=msg)
 
     @commands.command(aliases=['tm'])
     async def tminus(self, ctx):
@@ -364,7 +352,6 @@ class Rocketcommands:
         """Tells information about rocket with provided name.
 
         "str"     Name of the rocket. (always first)
-        -k        Does not automatically delete bot message.
         -id       Includes id of the rocket.
         -fid      Includes rocketfamily id.
         -aid      Includes agency id.
@@ -391,7 +378,6 @@ class Rocketcommands:
         """Tells information about rocket with provided ID.
 
         [int]     ID of the rocket.
-        -k        Does not automatically delete bot message.
         -fid      Includes rocketfamily id.
         -aid      Includes agency id.
         -p        Includes pad ids.
