@@ -141,7 +141,7 @@ async def launchalertformatter(launch):
         msg = formatter(msg, launch)
     return msg
 
-class Launchcommands:
+class Launchcommands(commands.Cog):
     """Commands related to rocket launches."""
 
     @commands.command(aliases=['nl', 'nela'])
@@ -344,7 +344,7 @@ class Launchcommands:
 
 bot.add_cog(Launchcommands())
 
-class Rocketcommands:
+class Rocketcommands(commands.Cog):
     """Commands related to rockets."""
 
     @commands.command()
