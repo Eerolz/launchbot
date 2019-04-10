@@ -7,7 +7,7 @@ verify_ssl = true
 
 [packages]
 python-launch-library = "*"
-"discord.py" = {file = "https://github.com/Rapptz/discord.py/archive/rewrite.zip"}
+discord-py = "*"
 
 [requires]
 python_version = "3.7"
