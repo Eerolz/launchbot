@@ -46,6 +46,7 @@ else:
 api = launchlibrary.Api()
 bot = commands.Bot(command_prefix=prefix)
 
+alert_active = False #because I didn't come up with better way to deal with this problem
 
 def chop_microseconds(delta):
     return delta - timedelta(microseconds=delta.microseconds)
@@ -56,61 +57,6 @@ async def send(ctx, msg, args):
 
 def can_answer(ctx):
     return True
-
-def get_next_update(launch):
-    """How often will launchalertupdater check for updates."""
-    launchtime_tz = launch.net
-    utc = datetime.now(timezone.utc)
-    T = chop_microseconds(launchtime_tz - utc)
-    T_minus = T
-    T_plus = timedelta(0)
-    if T < timedelta(0):
-        T_plus = chop_microseconds(utc - launchtime_tz)
-        T = T_plus
-    if launch.get_status().id in (2, 3, 4, 7):
-        return -1
-    elif T < timedelta(minutes=10):
-        return 10
-    elif T < timedelta(hours=1):
-        return round(T.total_seconds()/60)
-    elif T < timedelta(hours=2):
-        return 60
-    elif T_plus < timedelta(hours=6) or T_minus > timedelta(0):
-        return 15*60
-    else:
-        return -1
-
-async def alertupdater(launch):
-    launchid = launch.id
-    next_update = 0
-    while next_update != -1:
-        new_data = False
-        launch_last = launch
-        launchlist = launchlibrary.Launch.fetch(api, id=launchid)
-        if launchlist:
-            launch = launchlist[0]
-            msg = 'New data for **{0}**:\n'.format(launch.name)
-            status = launch.get_status()
-            if launch_last.get_status() != status:
-                new_data = True
-                msg += 'Status: {0}\n'.format(status.description)
-                if status.id in (2, 4, 5, 7):
-                    if launch.holdreason:
-                        reason = launch.holdreason
-                    else:
-                        reason = launch.failreason
-                    msg += 'Reason: {0}\n'.format(reason)
-            if launch_last.probability != launch.probability:
-                probability = launch.probability
-                if probability != -1:
-                    new_data = True
-                    msg += 'Weather probability: {0}%\n'.format(probability)
-            if new_data:
-                for channelid in alertchannels:
-                    channel = bot.get_channel(channelid)
-                    await channel.send(content=msg)
-        next_update = get_next_update(launch)
-        await asyncio.sleep(next_update)
 
 async def launchalertformatter(launch):
     """Formats the message for launchalert (doesn't include mention)"""
@@ -477,49 +423,48 @@ async def on_ready():
     launch = None
     launchid = None
     alerttime = 30
-
-    while 1:
-        global api
-        api = launchlibrary.Api()
-        launchlist = launchlibrary.Launch.next(api, 1)
-        if launchlist:
-            launch = launchlist[0]
-        if launch:
-            launchtime = launch.net
-            utc = datetime.now(timezone.utc)
-            T = chop_microseconds(launchtime - utc)
-            name = 'countdown: {0}'.format(T)
-            act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
-            await bot.change_presence(activity=act_T)
-            if T < timedelta(minutes=5):
-                check = 5
-            elif T < timedelta(hours=1):
-                check = round(T.total_seconds()/60)
-            elif T < timedelta(hours=2):
-                check = 60
-            elif T < timedelta(days=1):
-                check = 30*60
+    
+    global alert_active
+    if not alert_active:
+        while 1:
+            alert_active = True
+            launchlist = launchlibrary.Launch.next(api, 1)
+            if launchlist:
+                launch = launchlist[0]
+            if launch:
+                launchtime = launch.net
+                utc = datetime.now(timezone.utc)
+                T = chop_microseconds(launchtime - utc)
+                name = 'countdown: {0}'.format(T)
+                act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
+                await bot.change_presence(activity=act_T)
+                if T < timedelta(minutes=5):
+                    check = 5
+                elif T < timedelta(hours=1):
+                    check = round(T.total_seconds()/60)
+                elif T < timedelta(hours=2):
+                    check = 60
+                elif T < timedelta(days=1):
+                    check = 30*60
+                else:
+                    check = 60*60
+                    await bot.change_presence(activity=act_def)
+                if T < timedelta(minutes=alerttime) and launch.id != launchid:
+                    alertmsg = await launchalertformatter(launch)
+                    for channelid in alertchannels:
+                        channel = bot.get_channel(channelid)
+                        msg = ''
+                        if can_notify:
+                            msg = notify(msg, channel)
+                        else:
+                            msg = "Notifying disabled.\n"
+                        await channel.send(msg + alertmsg)
+                    launchid = launch.id
+                await asyncio.sleep(check)
             else:
-                check = 60*60
                 await bot.change_presence(activity=act_def)
-            if T < timedelta(minutes=alerttime) and launch.id != launchid:
-                alertmsg = await launchalertformatter(launch)
-                for channelid in alertchannels:
-                    channel = bot.get_channel(channelid)
-                    msg = ''
-                    if can_notify:
-                        msg = notify(msg, channel)
-                    else:
-                        msg = "Notifying disabled.\n"
-                    await channel.send(msg + alertmsg)
-                updaterloop = asyncio.create_task(alertupdater(launch))
-                await updaterloop
-                launchid = launch.id
-            await asyncio.sleep(check)
-        else:
-            await bot.change_presence(activity=act_def)
-            await asyncio.sleep(60*60)
-
+                await asyncio.sleep(60*60)
+    alert_active = False
 
 @bot.event
 async def on_command_error(ctx, error):
