@@ -63,3 +63,11 @@ def notify(msg, ctx):
     else:
         msg += 'No launch notify role found.\n'
     return msg
+
+def timelink(time):
+    time = time.replace(tzinfo=None)
+    hours = time.hour
+    minutes = time.minute
+    convertlink = 'https://www.thetimezoneconverter.com/?t={0}%3A{1}&tz=UTC'.format(hours, minutes)
+    text = '[{0}]({1})'.format(time, convertlink)
+    return text

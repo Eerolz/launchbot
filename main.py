@@ -94,9 +94,8 @@ class Launchcommands(commands.Cog):
     async def nextlaunch(self, ctx, *args):
         """Tells information about next launch.
 
-        -n        Notifies launch notify group.
-        -id       Includes launch ID.
-        -d        Includes mission description.
+        -t       Includes launch window.
+        -w        Includes weather probability.
         -v        Includes video URL.
         """
         if not can_answer(ctx):
@@ -115,18 +114,26 @@ class Launchcommands(commands.Cog):
                 probabilitystr = "not available"
             else:
                 probabilitystr = '{0}%'.format(probability)
-            msg = ''
-            if '-n' in args:
-                if can_notify:
-                    msg = notify(msg, ctx)
+            embed = discord.Embed(title=launchname)
+            embed.set_footer(text="ID: {0}".format(launch.id))
+            embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
+            if '-t' in args:
+                embed.add_field(name="Window start", value=timelink(launch.windowstart), inline=True)
+                embed.add_field(name="NET", value=timelink(launch.net), inline=True)
+                embed.add_field(name="Window end", value=timelink(launch.windowend), inline=True)
+            else:
+                embed.add_field(name="NET", value=timelink(launch.net))
+            if '-w' in args:
+                embed.add_field(name="Weather probability", value=probabilitystr)
+            if '-v' in args:
+                streamurls = launch.vid_urls
+                if streamurls:
+                    streamurl = streamurls[0]
+                    url = streamurl
                 else:
-                    msg = "Notifying disabled. "
-            msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\nT- {4}\n'
-            msg = msg.format(launchname, launchtime, tz, probabilitystr, T)
-            for arg, formatter in (('-id', id), ('-d', description), ('-v', videourl)):
-                if arg in args:
-                    msg = formatter(msg, launch)
-            await send(ctx, msg, args)
+                    url = "No video available"
+                embed.add_field(name="Video", value=url)
+            await ctx.send(embed=embed)
 
 
     @commands.command()
@@ -423,7 +430,7 @@ async def on_ready():
     launch = None
     launchid = None
     alerttime = 30
-    
+
     global alert_active
     if not alert_active:
         while 1:
