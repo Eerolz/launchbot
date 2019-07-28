@@ -58,6 +58,14 @@ async def send(ctx, msg, args):
 def can_answer(ctx):
     return True
 
+agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112}
+
+def get_color(agencyid):
+    if agencyid in agencycolors:
+        return agencycolors[agencyid]
+    else:
+        return 15132390
+
 async def launchalertformatter(launch):
     """Formats the message for launchalert (doesn't include mention)"""
     launchtime_tz = launch.net
@@ -75,17 +83,25 @@ async def launchalertformatter(launch):
     tz = launchtime_tz.tzname()
     launchtime = launchtime_tz.replace(tzinfo=None)
     probability = launch.probability
-    launchstatus = launch.get_status()
     if probability == -1:
         probabilitystr = " not available"
     else:
         probabilitystr = '{0}%'.format(probability)
-    msg = ''
-    msg += '**__{0}__**\nNET {1} {2}\nWeather probability: {3}\n{4}\nStatus: {5}\n'
-    msg = msg.format(launchname, launchtime, tz, probabilitystr, T_str, launchstatus.description)
-    for formatter in (description, videourl):
-        msg = formatter(msg, launch)
-    return msg
+    embedcolor = discord.Colour(123123)
+    embed = discord.Embed(title=launchname, colour=embedcolor)
+    embed.set_footer(text="ID: {0}".format(launch.id))
+    embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
+    embed.set_thumbnail(url=launch.rocket.image_url)
+    embed.add_field(name="NET", value=timelink(launch.net), inline=True)
+    embed.add_field(name="Maximum holding time:", value=launch.net-launch.windowend, inline=True)
+    embed.add_field(name="Weather probability", value=probabilitystr)
+    streamurls = launch.vid_urls
+    if streamurls:
+        url = streamurls[0]
+    else:
+        url = "No video available"
+
+    return embed, url
 
 class Launchcommands(commands.Cog):
     """Commands related to rocket launches."""
@@ -114,22 +130,24 @@ class Launchcommands(commands.Cog):
                 probabilitystr = "not available"
             else:
                 probabilitystr = '{0}%'.format(probability)
-            embed = discord.Embed(title=launchname)
+            embedcolor = discord.Colour(get_color(launch.agency.id))
+            embed = discord.Embed(title=launchname, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
             embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
+            embed.set_thumbnail(url=launch.rocket.image_url)
             if '-t' in args:
                 embed.add_field(name="Window start", value=timelink(launch.windowstart), inline=True)
                 embed.add_field(name="NET", value=timelink(launch.net), inline=True)
                 embed.add_field(name="Window end", value=timelink(launch.windowend), inline=True)
             else:
-                embed.add_field(name="NET", value=timelink(launch.net))
+                embed.add_field(name="NET", value=timelink(launch.net), inline=True)
+                embed.add_field(name="Max hold time:", value=launch.net-launch.windowend, inline=True)
             if '-w' in args:
                 embed.add_field(name="Weather probability", value=probabilitystr)
             if '-v' in args:
                 streamurls = launch.vid_urls
                 if streamurls:
-                    streamurl = streamurls[0]
-                    url = streamurl
+                    url = streamurls[0]
                 else:
                     url = "No video available"
                 embed.add_field(name="Video", value=url)
@@ -300,7 +318,7 @@ bot.add_cog(Launchcommands())
 class Rocketcommands(commands.Cog):
     """Commands related to rockets."""
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def rocketbyname(self, ctx, name, *args):
         """Tells information about rocket with provided name.
 
@@ -326,7 +344,7 @@ class Rocketcommands(commands.Cog):
             msg = "No rocket found with name provided."
         await send(ctx, msg, args)
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def rocketbyid(self, ctx, *args):
         """Tells information about rocket with provided ID.
 
@@ -356,7 +374,7 @@ class Rocketcommands(commands.Cog):
 
 bot.add_cog(Rocketcommands())
 
-@bot.command(name="die")
+@bot.command(aliases=["die"], hidden=True)
 async def shutdown(ctx):
     """Allows bots operator to kill the bot."""
     author = ctx.author
@@ -373,7 +391,7 @@ async def shutdown(ctx):
     else:
         await ctx.send("You can't tell me what to do!")
 
-@bot.command()
+@bot.command(hidden=True)
 async def pull(ctx):
     """Allows bots operator to update the bot."""
     author = ctx.author
@@ -388,28 +406,6 @@ async def pull(ctx):
         await ctx.send(msg)
     else:
         await ctx.send("You can't tell me what to do!")
-
-
-@bot.command(name="restart")
-async def restart_cmd(ctx):
-    """Allows bots operator to restart the bot."""
-    author = ctx.author
-    if author.id in authorities:
-        msg = "Restarting myself..."
-        await ctx.send(msg)
-        f = "killers.txt"
-        killlog = open(f, 'a')
-        killlog.write(str(author.id)+' restart')
-        restarter = asyncio.create_task(restart())
-        print(msg)
-        await restarter
-        await bot.logout()
-    else:
-        await ctx.send("You can't tell me what to do!")
-
-async def restart():
-    await asyncio.sleep(10)
-    os.execl(sys.executable, sys.executable, *sys.argv)
 
 
 @bot.command()
@@ -457,16 +453,16 @@ async def on_ready():
                     check = 60*60
                     await bot.change_presence(activity=act_def)
                 if T < timedelta(minutes=alerttime) and launch.id != launchid:
-                    alertmsg = await launchalertformatter(launch)
+                    embed, msg2 = await launchalertformatter(launch)
                     for channelid in alertchannels:
                         channel = bot.get_channel(channelid)
-                        msg = ''
                         if can_notify:
-                            msg = notify(msg, channel)
+                            notifystr = notify('', channel)
                         else:
-                            msg = "Notifying disabled.\n"
-                        await channel.send(msg + alertmsg)
-                    launchid = launch.id
+                            notifystr = "Notifying disabled.\n"
+                        await channel.send(content=notifystr, embed=embed)
+                        await channel.send(content=msg2)
+                        launchid = launch.id
                 await asyncio.sleep(check)
             else:
                 await bot.change_presence(activity=act_def)
