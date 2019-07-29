@@ -93,7 +93,7 @@ async def launchalertformatter(launch):
     embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
     embed.set_thumbnail(url=launch.rocket.image_url)
     embed.add_field(name="NET", value=timelink(launch.net), inline=True)
-    embed.add_field(name="Maximum holding time:", value=launch.net-launch.windowend, inline=True)
+    embed.add_field(name="Maximum holding time:", value=launch.windowend-launch.net, inline=True)
     embed.add_field(name="Weather probability", value=probabilitystr)
     streamurls = launch.vid_urls
     if streamurls:
@@ -141,7 +141,7 @@ class Launchcommands(commands.Cog):
                 embed.add_field(name="Window end", value=timelink(launch.windowend), inline=True)
             else:
                 embed.add_field(name="NET", value=timelink(launch.net), inline=True)
-                embed.add_field(name="Max hold time:", value=launch.net-launch.windowend, inline=True)
+                embed.add_field(name="Max hold time:", value=launch.windowend-launch.net, inline=True)
             if '-w' in args:
                 embed.add_field(name="Weather probability", value=probabilitystr)
             if '-v' in args:
