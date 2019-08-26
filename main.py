@@ -58,13 +58,14 @@ async def send(ctx, msg, args):
 def can_answer(ctx):
     return True
 
-agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112}
+agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112, 194:11155486}
 
 def get_color(agencyid):
     if agencyid in agencycolors:
         return agencycolors[agencyid]
     else:
-        return 15132390
+        print('No color for: {0}'.format(agencyid))
+        return 5592405
 
 async def launchalertformatter(launch):
     """Formats the message for launchalert (doesn't include mention)"""
@@ -87,13 +88,13 @@ async def launchalertformatter(launch):
         probabilitystr = " not available"
     else:
         probabilitystr = '{0}%'.format(probability)
-    embedcolor = discord.Colour(123123)
+    embedcolor = discord.Colour(get_color(launch.agency.id))
     embed = discord.Embed(title=launchname, colour=embedcolor)
     embed.set_footer(text="ID: {0}".format(launch.id))
     embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
     embed.set_thumbnail(url=launch.rocket.image_url)
     embed.add_field(name="NET", value=timelink(launch.net), inline=True)
-    embed.add_field(name="Maximum holding time:", value=launch.windowend-launch.net, inline=True)
+    embed.add_field(name="Maximum holding time:", value=launch.windowend - launch.net, inline=True)
     embed.add_field(name="Weather probability", value=probabilitystr)
     streamurls = launch.vid_urls
     if streamurls:
@@ -112,7 +113,7 @@ class Launchcommands(commands.Cog):
 
         -t       Includes launch window.
         -w        Includes weather probability.
-        -v        Includes video URL.
+        -v        Includes stream URLs.
         """
         if not can_answer(ctx):
             return
@@ -141,20 +142,20 @@ class Launchcommands(commands.Cog):
                 embed.add_field(name="Window end", value=timelink(launch.windowend), inline=True)
             else:
                 embed.add_field(name="NET", value=timelink(launch.net), inline=True)
-                embed.add_field(name="Max hold time:", value=launch.windowend-launch.net, inline=True)
+                embed.add_field(name="Max hold time:", value=launch.windowend - launch.net, inline=True)
             if '-w' in args:
                 embed.add_field(name="Weather probability", value=probabilitystr)
             if '-v' in args:
                 streamurls = launch.vid_urls
                 if streamurls:
-                    url = streamurls[0]
+                    url = '\n'.join(streamurls)
                 else:
                     url = "No video available"
                 embed.add_field(name="Video", value=url)
             await ctx.send(embed=embed)
 
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def launchalert(self, ctx, alerttime='15'):
         """Enables launch alerts until next shutdown.
         Only authorities can use this.
@@ -177,8 +178,7 @@ class Launchcommands(commands.Cog):
 
         [int]     ID of the launch.
         -r        Includes holdreason and failreason
-        -v        Includes video URL.
-        -d        Includes mission description.
+        -v        Includes video URLs.
         """
         if not can_answer(ctx):
             return
@@ -187,30 +187,48 @@ class Launchcommands(commands.Cog):
             if str(arg).isdigit():
                 launchid = int(arg)
         if launchid:
-            launch = launchlibrary.Launch.fetch(api, id=launchid)[0]
-            launchname = launch.name
-            launchstatus = launch.get_status().description
-            launchtime_tz = launch.net
-            tz = launchtime_tz.tzname()
-            launchtime = launchtime_tz.replace(tzinfo=None)
-            msg = '**__{0}__**\n{1}\nNET {2} {3}\n'
-            msg = msg.format(launchname, launchstatus, launchtime, tz)
-            for arg, formatter in (('-r', reasons), ('-d', description), ('-v', videourl)):
-                if arg in args:
-                    msg = formatter(msg, launch)
+            launches = launchlibrary.Launch.fetch(api, id=launchid)
+            if launches:
+                launch = launches[0]
+                launchname = launch.name
+                launchstatus = launch.get_status().description
+                launchtime_tz = launch.net
+                tz = launchtime_tz.tzname()
+                launchtime = launchtime_tz.replace(tzinfo=None)
+                embedcolor = discord.Colour(get_color(launch.agency.id))
+                embed = discord.Embed(title=launchname, colour=embedcolor)
+                embed.set_footer(text="ID: {0}".format(launch.id))
+                embed.set_thumbnail(url=launch.rocket.image_url)
+                embed.add_field(name=launch.net, value=launch.missions[0]['description'])
+                if '-r' in args:
+                    holdreason = launch.holdreason
+                    failreason = launch.failreason
+                    if holdreason:
+                        embed.add_field(name="Holdreason:", value=holdreason)
+                    if failreason:
+                        embed.add_field(name="Failreason:", value=failreason)
+                    else:
+                        embed.add_field(name="Error:", value="No reasons available")
+                if '-v' in args:
+                    streamurls = launch.vid_urls
+                    if streamurls:
+                        url = '\n'.join(streamurls)
+                    else:
+                        url = "No video available"
+                    embed.add_field(name="Video", value=url)
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send("No launch with that ID.")
         else:
-            msg = "No ID provided."
-        await send(ctx, msg, args)
+            await ctx.send("No ID provided.")
 
     @commands.command(aliases=['lana'])
     async def launchbyname(self, ctx, name, *args):
         """Tells information about launch with provided name.
 
         "str"     Name of the launch. (always first)
-        -id       Includes id of the launch.
         -r        Includes holdreason and failreason.
         -v        Includes video URL.
-        -d        Includes mission description.
         """
         if not can_answer(ctx):
             return
@@ -227,14 +245,30 @@ class Launchcommands(commands.Cog):
             launchtime_tz = launch.net
             tz = launchtime_tz.tzname()
             launchtime = launchtime_tz.replace(tzinfo=None)
-            msg = '**__{0}__**\n{1}\nNET {2} {3}\n'
-            msg = msg.format(launchname, launchstatus, launchtime, tz)
-            for arg, formatter in (('-r', reasons), ('-id', id), ('-d', description), ('-v', videourl)):
-                if arg in args:
-                    msg = formatter(msg, launch)
+            embedcolor = discord.Colour(get_color(launch.agency.id))
+            embed = discord.Embed(title=launchname, colour=embedcolor)
+            embed.set_footer(text="ID: {0}".format(launch.id))
+            embed.set_thumbnail(url=launch.rocket.image_url)
+            embed.add_field(name=launch.net, value=launch.missions[0]['description'])
+            if '-r' in args:
+                holdreason = launch.holdreason
+                failreason = launch.failreason
+                if holdreason:
+                    embed.add_field(name="Holdreason:", value=holdreason)
+                if failreason:
+                    embed.add_field(name="Failreason:", value=failreason)
+                else:
+                    embed.add_field(name="Error:", value="No reasons available")
+            if '-v' in args:
+                streamurls = launch.vid_urls
+                if streamurls:
+                    url = '\n'.join(streamurls)
+                else:
+                    url = "No video available"
+                embed.add_field(name="Video", value=url)
+            await ctx.send(embed=embed)
         else:
-            msg = "No launch found with name provided."
-        await send(ctx, msg, args)
+            await ctx.send("No launch found with that name.")
 
     @commands.command(aliases=['lina'])
     async def listbyname(self, ctx, name, *args):
@@ -242,7 +276,6 @@ class Launchcommands(commands.Cog):
 
         -[int]    The number of launches listed. Default is 5, max 10.
         -s        Include launch status.
-        -id       Include the IDs of the launches.
         """
         if not can_answer(ctx):
             return
@@ -256,8 +289,10 @@ class Launchcommands(commands.Cog):
             if arg[1:].isdigit() and arg.startswith('-'):
                 num = int(arg[1:])
         launches = launchlibrary.Launch.fetch(api, name=name)
-        msg = discord.Embed(title="Listing launches found with {0}:\n".format(name))
         if launches:
+            embedcolor = discord.Colour(get_color(launches[0].agency.id))
+            msg = discord.Embed(title="Listing launches found with {0}:\n".format(name), colour=embedcolor)
+            IDs = []
             for launch in launches[:num]:
                 net = launch.net
                 value = "Date: {0}".format(net.date())
@@ -268,6 +303,9 @@ class Launchcommands(commands.Cog):
                 if "-id" in args:
                     value += ", ID: {0}".format(launch.id)
                 msg.add_field(name=launch.name, value=value, inline=False)
+                IDs.append(launch.id)
+            footer = 'IDs: ' + ', '.join(str(x) for x in IDs)
+            msg.set_footer(text=footer)
             await ctx.send(embed=msg)
         else:
             msg = "No launches found with provided name."
@@ -276,10 +314,8 @@ class Launchcommands(commands.Cog):
     @commands.command(aliases=['lila', 'll'])
     async def listlaunches(self, ctx, *args):
         """Lists next launches.
-        Note: only gives launches that are GO.
 
         [int]     The number of launches listed. Default is 5, max is 10.
-        -id       Include the IDs of the launches.
         """
         if not can_answer(ctx):
             return
@@ -287,16 +323,22 @@ class Launchcommands(commands.Cog):
         for arg in args:
             if arg.isdigit():
                 num = int(arg)
-        launches = launchlibrary.Launch.next(api, num)
-        msg = discord.Embed(title="Listing next launches: ")
+        launches = launchlibrary.Launch.fetch(api, status=(1,2))[:num]
+        embedcolor = discord.Colour(get_color(launches[0].agency.id))
+        msg = discord.Embed(title="Listing next launches: ", colour=embedcolor)
+        IDs = []
         for launch in launches:
             launchtime = launch.net
             utc = datetime.now(timezone.utc)
             T = chop_microseconds(launchtime - utc)
-            value = "T-: {0}".format(T)
-            if "-id" in args:
-                value += ", ID: {0}".format(launch.id)
+            if launch.status == 1:
+                value = "T-: {0}".format(T)
+            else:
+                value = "T-: {0}; {1}".format(T, launch.get_status().name)
             msg.add_field(name=launch.name, value=value, inline=False)
+            IDs.append(launch.id)
+        footer = 'IDs: ' + ', '.join(str(x) for x in IDs)
+        msg.set_footer(text=footer)
         await ctx.send(embed=msg)
 
     @commands.command(aliases=['tm'])
@@ -424,14 +466,14 @@ async def on_ready():
     print("Launchbot operational!")
 
     launch = None
-    launchid = None
+    launchids = ()
     alerttime = 30
 
     global alert_active
     if not alert_active:
         while 1:
             alert_active = True
-            launchlist = launchlibrary.Launch.next(api, 1)
+            launchlist = launchlibrary.Launch.next(api, 3)
             if launchlist:
                 launch = launchlist[0]
             if launch:
@@ -441,7 +483,10 @@ async def on_ready():
                 name = 'countdown: {0}'.format(T)
                 act_T = discord.Activity(type=discord.ActivityType.watching, name=name)
                 await bot.change_presence(activity=act_T)
-                if T < timedelta(minutes=5):
+                if T < timedelta(0):
+                    check = 60*60
+                    await bot.change_presence(activity=act_def)
+                elif T < timedelta(minutes=5):
                     check = 5
                 elif T < timedelta(hours=1):
                     check = round(T.total_seconds()/60)
@@ -452,17 +497,21 @@ async def on_ready():
                 else:
                     check = 60*60
                     await bot.change_presence(activity=act_def)
-                if T < timedelta(minutes=alerttime) and launch.id != launchid:
-                    embed, msg2 = await launchalertformatter(launch)
-                    for channelid in alertchannels:
-                        channel = bot.get_channel(channelid)
-                        if can_notify:
-                            notifystr = notify('', channel)
-                        else:
-                            notifystr = "Notifying disabled.\n"
-                        await channel.send(content=notifystr, embed=embed)
-                        await channel.send(content=msg2)
-                        launchid = launch.id
+                for launch in launchlist:
+                    launchtime = launch.net
+                    utc = datetime.now(timezone.utc)
+                    T = chop_microseconds(launchtime - utc)
+                    if T < timedelta(minutes=alerttime) and launch.id not in launchids:
+                        embed, msg2 = await launchalertformatter(launch)
+                        for channelid in alertchannels:
+                            channel = bot.get_channel(channelid)
+                            if can_notify:
+                                notifystr = notify('', channel)
+                            else:
+                                notifystr = "Notifying disabled.\n"
+                            await channel.send(content=notifystr, embed=embed)
+                            await channel.send(content=msg2)
+                            launchids += (launch.id,)
                 await asyncio.sleep(check)
             else:
                 await bot.change_presence(activity=act_def)
