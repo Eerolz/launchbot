@@ -60,11 +60,15 @@ def can_answer(ctx):
 
 agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112, 194:11155486}
 
-def get_color(agencyid):
+async def get_color(agencyid):
     if agencyid in agencycolors:
         return agencycolors[agencyid]
     else:
+        if testchannelid:
+            testchannel = bot.get_channel(testchannelid)
+            await testchannel.send('No color for: {0}'.format(agencyid))
         print('No color for: {0}'.format(agencyid))
+
         return 5592405
 
 async def launchalertformatter(launch):
@@ -88,7 +92,7 @@ async def launchalertformatter(launch):
         probabilitystr = " not available"
     else:
         probabilitystr = '{0}%'.format(probability)
-    embedcolor = discord.Colour(get_color(launch.agency.id))
+    embedcolor = discord.Colour(await get_color(launch.agency.id))
     embed = discord.Embed(title=launchname, colour=embedcolor)
     embed.set_footer(text="ID: {0}".format(launch.id))
     embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
@@ -131,10 +135,13 @@ class Launchcommands(commands.Cog):
                 probabilitystr = "not available"
             else:
                 probabilitystr = '{0}%'.format(probability)
-            embedcolor = discord.Colour(get_color(launch.agency.id))
+            embedcolor = discord.Colour(await get_color(launch.agency.id))
             embed = discord.Embed(title=launchname, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
-            embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
+            if launch.missions:
+                embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
+            else:
+                embed.add_field(name="T-: {0}".format(T), value='No description available.')
             embed.set_thumbnail(url=launch.rocket.image_url)
             if '-t' in args:
                 embed.add_field(name="Window start", value=timelink(launch.windowstart), inline=True)
@@ -195,7 +202,7 @@ class Launchcommands(commands.Cog):
                 launchtime_tz = launch.net
                 tz = launchtime_tz.tzname()
                 launchtime = launchtime_tz.replace(tzinfo=None)
-                embedcolor = discord.Colour(get_color(launch.agency.id))
+                embedcolor = discord.Colour(await get_color(launch.agency.id))
                 embed = discord.Embed(title=launchname, colour=embedcolor)
                 embed.set_footer(text="ID: {0}".format(launch.id))
                 embed.set_thumbnail(url=launch.rocket.image_url)
@@ -245,7 +252,7 @@ class Launchcommands(commands.Cog):
             launchtime_tz = launch.net
             tz = launchtime_tz.tzname()
             launchtime = launchtime_tz.replace(tzinfo=None)
-            embedcolor = discord.Colour(get_color(launch.agency.id))
+            embedcolor = discord.Colour(await get_color(launch.agency.id))
             embed = discord.Embed(title=launchname, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
             embed.set_thumbnail(url=launch.rocket.image_url)
@@ -290,7 +297,7 @@ class Launchcommands(commands.Cog):
                 num = int(arg[1:])
         launches = launchlibrary.Launch.fetch(api, name=name)
         if launches:
-            embedcolor = discord.Colour(get_color(launches[0].agency.id))
+            embedcolor = discord.Colour(await get_color(launches[0].agency.id))
             msg = discord.Embed(title="Listing launches found with {0}:\n".format(name), colour=embedcolor)
             IDs = []
             for launch in launches[:num]:
@@ -324,7 +331,7 @@ class Launchcommands(commands.Cog):
             if arg.isdigit():
                 num = int(arg)
         launches = launchlibrary.Launch.fetch(api, status=(1,2))[:num]
-        embedcolor = discord.Colour(get_color(launches[0].agency.id))
+        embedcolor = discord.Colour(await get_color(launches[0].agency.id))
         msg = discord.Embed(title="Listing next launches: ", colour=embedcolor)
         IDs = []
         for launch in launches:
