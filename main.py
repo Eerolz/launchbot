@@ -58,7 +58,7 @@ async def send(ctx, msg, args):
 def can_answer(ctx):
     return True
 
-agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112, 194:11155486}
+agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112, 194:11155486, 98:14615829}
 
 async def get_color(agencyid):
     if agencyid in agencycolors:
