@@ -1,6 +1,4 @@
 #!/usr/bin/python3
-import os
-import sys
 import subprocess
 import configparser
 import discord
@@ -8,9 +6,8 @@ from discord.ext import commands
 import launchlibrary
 import asyncio
 from datetime import datetime, timezone, timedelta
-from formatters import *
+from functions import *
 from random import choice
-
 
 configfile = "config.ini"
 config = configparser.ConfigParser()
@@ -48,9 +45,6 @@ bot = commands.Bot(command_prefix=prefix)
 
 alert_active = False #because I didn't come up with better way to deal with this problem
 
-def chop_microseconds(delta):
-    return delta - timedelta(microseconds=delta.microseconds)
-
 async def send(ctx, msg, args):
     sent_msg = await ctx.send(msg)
 
@@ -58,7 +52,7 @@ async def send(ctx, msg, args):
 def can_answer(ctx):
     return True
 
-agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112, 194:11155486, 98:14615829}
+agencycolors = {124:16750899, 27:16750899, 121:16777215, 147:0, 63:26112, 194:11155486, 98:14615829, 115:16750899}
 
 async def get_color(agencyid):
     if agencyid in agencycolors:
@@ -75,15 +69,8 @@ async def launchalertformatter(launch):
     """Formats the message for launchalert (doesn't include mention)"""
     launchtime_tz = launch.net
     utc = datetime.now(timezone.utc)
-    T_minus = chop_microseconds(launchtime_tz - utc)
-    T_plus = timedelta(0)
-    T = T_minus
-    if T_minus < timedelta(0):
-        T_plus = chop_microseconds(utc - launchtime_tz)
-        T = T_plus
-        T_str = "T+ {0}".format(T_plus)
-    else:
-        T_str = "T- {0}".format(T_minus)
+    T = T_minus(launch)
+    T = chop_microseconds(launchtime_tz - utc)
     launchname = launch.name
     tz = launchtime_tz.tzname()
     launchtime = launchtime_tz.replace(tzinfo=None)
@@ -95,7 +82,14 @@ async def launchalertformatter(launch):
     embedcolor = discord.Colour(await get_color(launch.agency.id))
     embed = discord.Embed(title=launchname, colour=embedcolor)
     embed.set_footer(text="ID: {0}".format(launch.id))
-    embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
+    if launch.missions:
+        description = launch.missions[0]['description']
+        if len(description) > 1000:
+            embed.add_field(name="T-: {0}".format(T), value=description[:997]+'...')
+        else:
+            embed.add_field(name="T-: {0}".format(T), value=description)
+    else:
+        embed.add_field(name="T-: {0}".format(T), value="No description available.")
     embed.set_thumbnail(url=launch.rocket.image_url)
     embed.add_field(name="NET", value=timelink(launch.net), inline=True)
     embed.add_field(name="Maximum holding time:", value=launch.windowend - launch.net, inline=True)
@@ -139,9 +133,13 @@ class Launchcommands(commands.Cog):
             embed = discord.Embed(title=launchname, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
             if launch.missions:
-                embed.add_field(name="T-: {0}".format(T), value=launch.missions[0]['description'])
+                description = launch.missions[0]['description']
+                if len(description) > 1000:
+                    embed.add_field(name="T-: {0}".format(T), value=description[:997]+'...')
+                else:
+                    embed.add_field(name="T-: {0}".format(T), value=description)
             else:
-                embed.add_field(name="T-: {0}".format(T), value='No description available.')
+                embed.add_field(name="T-: {0}".format(T), value="No description available.")
             embed.set_thumbnail(url=launch.rocket.image_url)
             if '-t' in args:
                 embed.add_field(name="Window start", value=timelink(launch.windowstart), inline=True)
@@ -180,54 +178,27 @@ class Launchcommands(commands.Cog):
             #     await ctx.send("You sure would like to know early.")
 
     @commands.command(aliases=['laid'])
-    async def launchbyid(self, ctx, *args):
+    async def launchbyid(self, ctx, launchid, *args):
         """Tells information about launch with provided ID.
 
-        [int]     ID of the launch.
+        [int]     ID of the launch. (always first)
         -r        Includes holdreason and failreason
         -v        Includes video URLs.
         """
-        if not can_answer(ctx):
-            return
-        launchid = False
-        for arg in args:
-            if str(arg).isdigit():
-                launchid = int(arg)
-        if launchid:
-            launches = launchlibrary.Launch.fetch(api, id=launchid)
-            if launches:
-                launch = launches[0]
-                launchname = launch.name
-                launchstatus = launch.get_status().description
-                launchtime_tz = launch.net
-                tz = launchtime_tz.tzname()
-                launchtime = launchtime_tz.replace(tzinfo=None)
-                embedcolor = discord.Colour(await get_color(launch.agency.id))
-                embed = discord.Embed(title=launchname, colour=embedcolor)
-                embed.set_footer(text="ID: {0}".format(launch.id))
-                embed.set_thumbnail(url=launch.rocket.image_url)
-                embed.add_field(name=launch.net, value=launch.missions[0]['description'])
-                if '-r' in args:
-                    holdreason = launch.holdreason
-                    failreason = launch.failreason
-                    if holdreason:
-                        embed.add_field(name="Holdreason:", value=holdreason)
-                    if failreason:
-                        embed.add_field(name="Failreason:", value=failreason)
-                    else:
-                        embed.add_field(name="Error:", value="No reasons available")
-                if '-v' in args:
-                    streamurls = launch.vid_urls
-                    if streamurls:
-                        url = '\n'.join(streamurls)
-                    else:
-                        url = "No video available"
-                    embed.add_field(name="Video", value=url)
-                await ctx.send(embed=embed)
-            else:
-                await ctx.send("No launch with that ID.")
+        launches = launchlibrary.Launch.fetch(api, id=launchid)
+        if launches:
+            launch = launches[0]
+            embedcolor = discord.Colour(await get_color(launch.agency.id))
+            embed = discord.Embed(title=launch.name, colour=embedcolor)
+            embed.set_footer(text="ID: {0}".format(launch.id))
+            embed.set_thumbnail(url=launch.rocket.image_url)
+            embed = time_description(embed, launch)
+            for arg, formatter in (('-r', reasons), ('-v', videourls)):
+                if arg in args:
+                    msg = formatter(embed, launch)
+            await ctx.send(embed=embed)
         else:
-            await ctx.send("No ID provided.")
+            await ctx.send("No launch with that ID.")
 
     @commands.command(aliases=['lana'])
     async def launchbyname(self, ctx, name, *args):
@@ -237,8 +208,6 @@ class Launchcommands(commands.Cog):
         -r        Includes holdreason and failreason.
         -v        Includes video URL.
         """
-        if not can_answer(ctx):
-            return
         for arg in args:
             if arg.startswith('-'):
                 break
@@ -247,32 +216,14 @@ class Launchcommands(commands.Cog):
         launches = launchlibrary.Launch.fetch(api, name=name)
         if launches:
             launch = launches[0]
-            launchname = launch.name
-            launchstatus = launch.get_status().description
-            launchtime_tz = launch.net
-            tz = launchtime_tz.tzname()
-            launchtime = launchtime_tz.replace(tzinfo=None)
             embedcolor = discord.Colour(await get_color(launch.agency.id))
-            embed = discord.Embed(title=launchname, colour=embedcolor)
+            embed = discord.Embed(title=launch.name, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
             embed.set_thumbnail(url=launch.rocket.image_url)
-            embed.add_field(name=launch.net, value=launch.missions[0]['description'])
-            if '-r' in args:
-                holdreason = launch.holdreason
-                failreason = launch.failreason
-                if holdreason:
-                    embed.add_field(name="Holdreason:", value=holdreason)
-                if failreason:
-                    embed.add_field(name="Failreason:", value=failreason)
-                else:
-                    embed.add_field(name="Error:", value="No reasons available")
-            if '-v' in args:
-                streamurls = launch.vid_urls
-                if streamurls:
-                    url = '\n'.join(streamurls)
-                else:
-                    url = "No video available"
-                embed.add_field(name="Video", value=url)
+            embed = time_description(embed, launch)
+            for arg, formatter in (('-r', reasons), ('-v', videourls)):
+                if arg in args:
+                    msg = formatter(embed, launch)
             await ctx.send(embed=embed)
         else:
             await ctx.send("No launch found with that name.")
@@ -421,7 +372,7 @@ class Rocketcommands(commands.Cog):
             msg = "No ID provided."
         await send(ctx, msg, args)
 
-bot.add_cog(Rocketcommands())
+# bot.add_cog(Rocketcommands())
 
 @bot.command(aliases=["die"], hidden=True)
 async def shutdown(ctx):
