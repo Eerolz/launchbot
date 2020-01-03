@@ -85,13 +85,13 @@ async def launchalertformatter(launch):
     if launch.missions:
         description = launch.missions[0]['description']
         if len(description) > 1000:
-            embed.add_field(name="T-: {0}".format(T), value=description[:997]+'...')
+            embed.add_field(name="T-: {0}".format(T), value=description[:997]+'...', inline=False)
         else:
-            embed.add_field(name="T-: {0}".format(T), value=description)
+            embed.add_field(name="T-: {0}".format(T), value=description, inline=False)
     else:
-        embed.add_field(name="T-: {0}".format(T), value="No description available.")
+        embed.add_field(name="T-: {0}".format(T), value="No description available.", inline=False)
     embed.set_thumbnail(url=launch.rocket.image_url)
-    embed.add_field(name="NET", value=timelink(launch.net), inline=True)
+    embed.add_field(name="NET", value=timelink(launch.net))
     embed.add_field(name="Maximum holding time:", value=launch.windowend - launch.net, inline=True)
     embed.add_field(name="Weather probability", value=probabilitystr)
     streamurls = launch.vid_urls
@@ -135,11 +135,11 @@ class Launchcommands(commands.Cog):
             if launch.missions:
                 description = launch.missions[0]['description']
                 if len(description) > 1000:
-                    embed.add_field(name="T-: {0}".format(T), value=description[:997]+'...')
+                    embed.add_field(name="T-: {0}".format(T), value=description[:997]+'...', inline=False)
                 else:
-                    embed.add_field(name="T-: {0}".format(T), value=description)
+                    embed.add_field(name="T-: {0}".format(T), value=description, inline=False)
             else:
-                embed.add_field(name="T-: {0}".format(T), value="No description available.")
+                embed.add_field(name="T-: {0}".format(T), value="No description available.", inline=False)
             embed.set_thumbnail(url=launch.rocket.image_url)
             if '-t' in args:
                 embed.add_field(name="Window start", value=timelink(launch.windowstart), inline=True)
@@ -162,20 +162,19 @@ class Launchcommands(commands.Cog):
 
     @commands.command(hidden=True)
     async def launchalert(self, ctx, alerttime='15'):
-        """Enables launch alerts until next shutdown.
-        Only authorities can use this.
-
-        [int]     Minutes before launch to alert. (default = 15, max = 99)
-        """
+        """Test launchalertformatter."""
         author = ctx.author
-        if author.guild_permissions.administrator or author.id in authorities:
-            await ctx.send("Command currently disabled")
-            # if len(alerttime) < 2:
-            #     alerttime = int(alerttime)
-            #     msg = "Launch alerts enabled. Alerts at T- {0}minutes".format(alerttime)
-            #     await ctx.send(msg)
-            # else:
-            #     await ctx.send("You sure would like to know early.")
+        if author.id in authorities:
+            launches = launchlibrary.Launch.next(api, 1)
+            if launches:
+                launch = launches[0]
+                embed, msg2 = await launchalertformatter(launch)
+                if can_notify:
+                    notifystr = notify('', ctx)
+                else:
+                    notifystr = "Notifying disabled.\n"
+                await ctx.send(content=notifystr, embed=embed)
+                await ctx.send(content=msg2)
 
     @commands.command(aliases=['laid'])
     async def launchbyid(self, ctx, launchid, *args):
@@ -386,7 +385,8 @@ async def shutdown(ctx):
         await ctx.send(msg)
         f = "killers.txt"
         killlog = open(f, 'a')
-        killlog.write(str(author.id))
+        killlog.write(str(author.id) + '\n')
+        print('Killed by {0}, ({1})'.format(author.name, author.id))
         await bot.logout()
     else:
         await ctx.send("You can't tell me what to do!")
