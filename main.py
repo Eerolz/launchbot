@@ -156,7 +156,7 @@ class Launchcommands(commands.Cog):
                     url = '\n'.join(streamurls)
                 else:
                     url = "No video available"
-                embed.add_field(name="Video", value=url)
+                embed.add_field(name="Video", value=url, inline=False)
             await ctx.send(embed=embed)
 
 

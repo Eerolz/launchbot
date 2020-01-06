@@ -19,11 +19,11 @@ def time_description(embed, launch):
     if launch.missions:
         description = launch.missions[0]['description']
         if len(description) > 1000:
-            embed.add_field(name=title, value=description[:997]+'...')
+            embed.add_field(name=title, value=description[:997]+'...', inline=False)
         else:
-            embed.add_field(name=title, value=description)
+            embed.add_field(name=title, value=description, inline=False)
     else:
-        embed.add_field(name=title, value="No description available.")
+        embed.add_field(name=title, value="No description available.", inline=False)
     return embed
 
 def chop_microseconds(delta):
