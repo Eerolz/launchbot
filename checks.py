@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sqlite3
 import configparser
 
@@ -27,13 +28,13 @@ async def is_owner(ctx):
     return ctx.author.id in authorities
 
 async def is_admin(ctx):
-    return is_owner(ctx) or ctx.message.author.server_permissions.administrator
+    return await is_owner(ctx) or ctx.message.author.server_permissions.administrator
 
 async def is_editor(ctx):
     return is_owner(ctx) or ctx.author.id in editors
 
 async def can_answer(ctx):
-    if not is_admin(ctx):
+    if not await is_admin(ctx):
         with conn:
             cid = (ctx.channels.id,)
             c.execute("SELECT disabled FROM channels WHERE cid=?;", cid)
