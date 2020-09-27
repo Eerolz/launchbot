@@ -79,7 +79,10 @@ async def launchalertformatter(launch):
         probabilitystr = " not available"
     else:
         probabilitystr = '{0}%'.format(probability)
-    embedcolor = discord.Colour(await get_color(launch.agency.id))
+    if launch.agency != None:
+        embedcolor = discord.Colour(await get_color(launch.agency.id))
+    else:
+        embedcolor = discord.Colour(5592405)
     embed = discord.Embed(title=launchname, colour=embedcolor)
     embed.set_footer(text="ID: {0}".format(launch.id))
     if launch.missions:
@@ -129,7 +132,10 @@ class Launchcommands(commands.Cog):
                 probabilitystr = "not available"
             else:
                 probabilitystr = '{0}%'.format(probability)
-            embedcolor = discord.Colour(await get_color(launch.agency.id))
+            if launch.agency != None:
+                embedcolor = discord.Colour(await get_color(launch.agency.id))
+            else:
+                embedcolor = discord.Colour(5592405)
             embed = discord.Embed(title=launchname, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
             if launch.missions:
@@ -187,7 +193,10 @@ class Launchcommands(commands.Cog):
         launches = launchlibrary.Launch.fetch(api, id=launchid)
         if launches:
             launch = launches[0]
-            embedcolor = discord.Colour(await get_color(launch.agency.id))
+            if launch.agency != None:
+                embedcolor = discord.Colour(await get_color(launch.agency.id))
+            else:
+                embedcolor = discord.Colour(5592405)
             embed = discord.Embed(title=launch.name, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
             embed.set_thumbnail(url=launch.rocket.image_url)
@@ -215,7 +224,10 @@ class Launchcommands(commands.Cog):
         launches = launchlibrary.Launch.fetch(api, name=name)
         if launches:
             launch = launches[0]
-            embedcolor = discord.Colour(await get_color(launch.agency.id))
+            if launch.agency != None:
+                embedcolor = discord.Colour(await get_color(launch.agency.id))
+            else:
+                embedcolor = discord.Colour(5592405)
             embed = discord.Embed(title=launch.name, colour=embedcolor)
             embed.set_footer(text="ID: {0}".format(launch.id))
             embed.set_thumbnail(url=launch.rocket.image_url)
@@ -247,7 +259,10 @@ class Launchcommands(commands.Cog):
                 num = int(arg[1:])
         launches = launchlibrary.Launch.fetch(api, name=name)
         if launches:
-            embedcolor = discord.Colour(await get_color(launches[0].agency.id))
+            if launches[0].agency != None:
+                embedcolor = discord.Colour(await get_color(launches[0].agency.id))
+            else:
+                embedcolor = discord.Colour(5592405)
             msg = discord.Embed(title="Listing launches found with {0}:\n".format(name), colour=embedcolor)
             IDs = []
             for launch in launches[:num]:
@@ -281,7 +296,10 @@ class Launchcommands(commands.Cog):
             if arg.isdigit():
                 num = int(arg)
         launches = launchlibrary.Launch.fetch(api, status=(1,2))[:num]
-        embedcolor = discord.Colour(await get_color(launches[0].agency.id))
+        if launches[0].agency != None:
+            embedcolor = discord.Colour(await get_color(launches[0].agency.id))
+        else:
+            embedcolor = discord.Colour(5592405)
         msg = discord.Embed(title="Listing next launches: ", colour=embedcolor)
         IDs = []
         for launch in launches:
