@@ -499,6 +499,9 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         return
     else:
+        if testchannelid:
+            testchannel = bot.get_channel(testchannelid)
+            await testchannel.send("Launchbot operational!")
         print(error)
 
 bot.run(TOKEN)
